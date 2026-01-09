@@ -214,11 +214,7 @@ class FastestDet:
                 stage_repeats=self.stage_repeats,
                 stage_out_channels=self.stage_out_channels,
             ).to(device)
-
-        if self.use_ema:
-            self.ema = EMA(self.model, decay=0.9998)
-            self.ema.register()
-            self.model.load_state_dict(torch.load(opt.weight))
+            self.model.load_state_dict(torch.load(opt.weight, map_location=device))
         else:
             self.model = Detector(
                 self.cfg.category_num,
@@ -227,6 +223,10 @@ class FastestDet:
                 stage_repeats=self.stage_repeats,
                 stage_out_channels=self.stage_out_channels,
             ).to(device)
+
+        if self.use_ema:
+            self.ema = EMA(self.model, decay=0.9998)
+            self.ema.register()
 
         self.teacher_model = None
         self.teacher_stage_out_channels = None
@@ -273,16 +273,40 @@ class FastestDet:
         summary(self.model, input_size=(self.input_channels, self.cfg.input_height, self.cfg.input_width))
 
         # Build optimizer
-        print("use SGD optimizer")
-        self.optimizer = optim.SGD(params=self.model.parameters(),
-                                   lr=self.cfg.learn_rate,
-                                   momentum=0.949,
-                                   weight_decay=0.0005,
-                                   )
+        opt_name = getattr(self.cfg, "optimizer", "sgd")
+        opt_name = str(opt_name).lower()
+        weight_decay = float(getattr(self.cfg, "weight_decay", 0.0005))
+        if opt_name == "adamw":
+            print("use AdamW optimizer")
+            self.optimizer = optim.AdamW(
+                params=self.model.parameters(),
+                lr=self.cfg.learn_rate,
+                weight_decay=weight_decay,
+            )
+        else:
+            print("use SGD optimizer")
+            self.optimizer = optim.SGD(
+                params=self.model.parameters(),
+                lr=self.cfg.learn_rate,
+                momentum=0.949,
+                weight_decay=weight_decay,
+            )
         # Learning rate decay schedule
-        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer,
-                                                        milestones=self.cfg.milestones,
-                                                        gamma=0.1)
+        sched_name = str(getattr(self.cfg, "scheduler", "multistep")).lower()
+        gamma = float(getattr(self.cfg, "scheduler_gamma", 0.1))
+        if sched_name == "step":
+            step_size = int(getattr(self.cfg, "scheduler_step_size", 10))
+            self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=gamma)
+        elif sched_name == "cosine":
+            t_max = int(getattr(self.cfg, "scheduler_t_max", self.cfg.end_epoch))
+            eta_min = float(getattr(self.cfg, "scheduler_min_lr", 0.0))
+            self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=t_max, eta_min=eta_min)
+        elif sched_name == "none":
+            self.scheduler = None
+        else:
+            self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer,
+                                                            milestones=self.cfg.milestones,
+                                                            gamma=gamma)
 
         # Define loss
         self.loss_function = DetectorLoss(device)
@@ -812,7 +836,8 @@ class FastestDet:
                 self.writer.add_scalar("train/120_lr", lr, epoch)
 
             # Adjust learning rate
-            self.scheduler.step()
+            if self.scheduler is not None:
+                self.scheduler.step()
             if train_metrics is not None:
                 self._log_epoch(epoch, lr, train_metrics, distill_metrics, val_map05, last_name, best_name)
         self.writer.close()

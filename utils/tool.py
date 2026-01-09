@@ -34,9 +34,16 @@ class LoadYaml:
 
         self.learn_rate = data["TRAIN"]["LR"]
         self.batch_size = data["TRAIN"]["BATCH_SIZE"]
-        self.milestones = data["TRAIN"]["MILESTIONES"]
+        self.milestones = data["TRAIN"].get("MILESTIONES", [])
         self.end_epoch = data["TRAIN"]["END_EPOCH"]
         self.classes = parse_classes(data["TRAIN"].get("CLASSES"))
+        self.optimizer = data["TRAIN"].get("OPTIMIZER", "sgd")
+        self.scheduler = data["TRAIN"].get("SCHEDULER", "multistep")
+        self.scheduler_gamma = data["TRAIN"].get("GAMMA", 0.1)
+        self.weight_decay = data["TRAIN"].get("WEIGHT_DECAY", 0.0005)
+        self.scheduler_step_size = data["TRAIN"].get("STEP_SIZE", 10)
+        self.scheduler_min_lr = data["TRAIN"].get("MIN_LR", 0.0)
+        self.scheduler_t_max = data["TRAIN"].get("T_MAX", self.end_epoch)
         
         self.input_width = data["MODEL"]["INPUT_WIDTH"]
         self.input_height = data["MODEL"]["INPUT_HEIGHT"]
