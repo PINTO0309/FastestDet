@@ -13,7 +13,7 @@ def random_crop(image, boxes):
 
     roi = image[cy:cy + ch, cx:cx + cw]
     roi_h, roi_w, _ = roi.shape
-    
+
     output = []
     for box in boxes:
         index, category = box[0], box[1]
@@ -25,7 +25,7 @@ def random_crop(image, boxes):
 
         output.append([index, category, bx, by, bw, bh])
 
-    output = np.array(output, dtype=float)
+    output = np.array(output, dtype=float).reshape(-1, 6)
 
     return roi, output
 
@@ -49,7 +49,7 @@ def random_narrow(image, boxes):
 
         output.append([index, category, bx, by, bw, bh])
 
-    output = np.array(output, dtype=float)
+    output = np.array(output, dtype=float).reshape(-1, 6)
 
     return background, output
 
@@ -61,7 +61,7 @@ def collate_fn(batch):
     return torch.stack(img), torch.cat(label, 0)
 
 class TensorDataset():
-    def __init__(self, path, img_width, img_height, aug=False):
+    def __init__(self, path, img_width, img_height, aug=False, class_ids=None):
         assert os.path.exists(path), "%s文件路径错误或不存在" % path
 
         self.aug = aug
@@ -70,6 +70,10 @@ class TensorDataset():
         self.img_width = img_width
         self.img_height = img_height
         self.img_formats = ['bmp', 'jpg', 'jpeg', 'png']
+        self.class_map = None
+        if class_ids is not None:
+            class_ids = [int(c) for c in class_ids]
+            self.class_map = {cid: idx for idx, cid in enumerate(class_ids)}
 
         # 数据检查
         with open(self.path, 'r') as f:
@@ -95,16 +99,23 @@ class TensorDataset():
             label = []
             with open(label_path, 'r') as f:
                 for line in f.readlines():
-                    l = line.strip().split(" ")
-                    label.append([0, l[0], l[1], l[2], l[3], l[4]])
-            label = np.array(label, dtype=np.float32)
+                    l = line.strip().split()
+                    if len(l) < 5:
+                        continue
+                    class_id = int(float(l[0]))
+                    if self.class_map is not None:
+                        if class_id not in self.class_map:
+                            continue
+                        class_id = self.class_map[class_id]
+                    label.append([0, class_id, float(l[1]), float(l[2]), float(l[3]), float(l[4])])
+            label = np.array(label, dtype=np.float32).reshape(-1, 6)
 
             if label.shape[0]:
                 assert label.shape[1] == 6, '> 5 label columns: %s' % label_path
                 #assert (label >= 0).all(), 'negative labels: %s'%label_path
                 #assert (label[:, 1:] <= 1).all(), 'non-normalized or out of bounds coordinate labels: %s'%label_path
         else:
-            raise Exception("%s is not exist" % label_path) 
+            raise Exception("%s is not exist" % label_path)
 
         # 是否进行数据增强
         if self.aug:
@@ -113,7 +124,7 @@ class TensorDataset():
             else:
                 img, label = random_crop(img, label)
 
-        img = cv2.resize(img, (self.img_width, self.img_height), interpolation = cv2.INTER_LINEAR) 
+        img = cv2.resize(img, (self.img_width, self.img_height), interpolation = cv2.INTER_LINEAR)
 
         # debug
         # for box in label:
@@ -124,7 +135,7 @@ class TensorDataset():
         # cv2.imwrite("debug.jpg", img)
 
         img = img.transpose(2,0,1)
-        
+
         return torch.from_numpy(img), torch.from_numpy(label)
 
     def __len__(self):

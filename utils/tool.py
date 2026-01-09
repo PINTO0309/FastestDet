@@ -2,6 +2,26 @@ import yaml
 import torch
 import torchvision
 
+# 解析class id参数
+def parse_classes(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        items = [v.strip() for v in value.split(",") if v.strip()]
+    elif isinstance(value, (list, tuple)):
+        items = value
+    else:
+        items = [value]
+    class_ids = []
+    for item in items:
+        if isinstance(item, str):
+            if not item:
+                continue
+            class_ids.append(int(float(item)))
+        else:
+            class_ids.append(int(item))
+    return class_ids if class_ids else None
+
 # 解析yaml配置文件
 class LoadYaml:
     def __init__(self, path):
@@ -16,6 +36,7 @@ class LoadYaml:
         self.batch_size = data["TRAIN"]["BATCH_SIZE"]
         self.milestones = data["TRAIN"]["MILESTIONES"]
         self.end_epoch = data["TRAIN"]["END_EPOCH"]
+        self.classes = parse_classes(data["TRAIN"].get("CLASSES"))
         
         self.input_width = data["MODEL"]["INPUT_WIDTH"]
         self.input_height = data["MODEL"]["INPUT_HEIGHT"]
@@ -76,7 +97,7 @@ def handle_preds(preds, device, conf_thresh=0.25, nms_thresh=0.45):
     bboxes[..., 5] = pcls.argmax(dim=-1)
 
     # 检测框的坐标
-    gy, gx = torch.meshgrid([torch.arange(H), torch.arange(W)])
+    gy, gx = torch.meshgrid([torch.arange(H), torch.arange(W)], indexing="ij")
     bw, bh = preg[..., 2].sigmoid(), preg[..., 3].sigmoid() 
     bcx = (preg[..., 0].tanh() + gx.to(device)) / W
     bcy = (preg[..., 1].tanh() + gy.to(device)) / H

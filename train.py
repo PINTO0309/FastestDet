@@ -2,6 +2,7 @@ import os
 import math
 import torch
 import argparse
+import warnings
 from tqdm import tqdm
 from torch import optim
 from torchsummary import summary
@@ -13,6 +14,9 @@ from utils.evaluation import CocoDetectionEvaluator
 from module.loss import DetectorLoss
 from module.detector import Detector
 
+# Suppress noisy future warnings from dependencies.
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 # 指定后端设备CUDA&CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,12 +26,16 @@ class FastestDet:
         parser = argparse.ArgumentParser()
         parser.add_argument('--yaml', type=str, default="", help='.yaml config')
         parser.add_argument('--weight', type=str, default=None, help='.weight config')
+        parser.add_argument('--classes', type=str, default=None, help='comma-separated class ids')
 
         opt = parser.parse_args()
         assert os.path.exists(opt.yaml), "请指定正确的配置文件路径"
 
         # 解析yaml配置文件
         self.cfg = LoadYaml(opt.yaml)
+        cli_classes = parse_classes(opt.classes)
+        if cli_classes is not None:
+            self.cfg.classes = cli_classes
         print(self.cfg)
 
         # 初始化模型结构
@@ -60,15 +68,15 @@ class FastestDet:
         self.evaluation = CocoDetectionEvaluator(self.cfg.names, device)
 
         # 数据集加载
-        val_dataset = TensorDataset(self.cfg.val_txt, self.cfg.input_width, self.cfg.input_height, False)
-        train_dataset = TensorDataset(self.cfg.train_txt, self.cfg.input_width, self.cfg.input_height, True)
+        val_dataset = TensorDataset(self.cfg.val_txt, self.cfg.input_width, self.cfg.input_height, False, self.cfg.classes)
+        train_dataset = TensorDataset(self.cfg.train_txt, self.cfg.input_width, self.cfg.input_height, True, self.cfg.classes)
 
         #验证集
         self.val_dataloader = torch.utils.data.DataLoader(val_dataset,
                                                           batch_size=self.cfg.batch_size,
                                                           shuffle=False,
                                                           collate_fn=collate_fn,
-                                                          num_workers=4,
+                                                          num_workers=12,
                                                           drop_last=False,
                                                           persistent_workers=True
                                                           )
@@ -77,7 +85,7 @@ class FastestDet:
                                                             batch_size=self.cfg.batch_size,
                                                             shuffle=True,
                                                             collate_fn=collate_fn,
-                                                            num_workers=4,
+                                                            num_workers=12,
                                                             drop_last=True,
                                                             persistent_workers=True
                                                             )

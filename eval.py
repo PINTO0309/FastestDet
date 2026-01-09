@@ -1,6 +1,7 @@
 import os
 import torch
 import argparse
+import warnings
 from torchsummary import summary
 
 from utils.tool import *
@@ -8,6 +9,9 @@ from utils.datasets import *
 from utils.evaluation import CocoDetectionEvaluator
 
 from module.detector import Detector
+
+# Suppress noisy future warnings from dependencies.
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # 指定后端设备CUDA&CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,7 +43,7 @@ if __name__ == '__main__':
     evaluation = CocoDetectionEvaluator(cfg.names, device)
 
     # 数据集加载
-    val_dataset = TensorDataset(cfg.val_txt, cfg.input_width, cfg.input_height, False)
+    val_dataset = TensorDataset(cfg.val_txt, cfg.input_width, cfg.input_height, False, cfg.classes)
 
     #验证集
     val_dataloader = torch.utils.data.DataLoader(val_dataset,

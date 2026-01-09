@@ -3,11 +3,15 @@ import cv2
 import onnx
 import time
 import argparse
+import warnings
 from onnxsim import simplify
 
 import torch
 from utils.tool import *
 from module.detector import Detector
+
+# Suppress noisy future warnings from dependencies.
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 if __name__ == '__main__':
     # 指定训练配置文件
