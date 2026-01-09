@@ -1,6 +1,6 @@
 DATASET:
-  TRAIN: "dataset/uhd/train.txt"
-  VAL: "dataset/uhd/val.txt"
+  TRAIN: "dataset/wholebody34/train.txt"
+  VAL: "dataset/wholebody34/val.txt"
   NAMES: "configs/uhd09.names"
 MODEL:
   NC: 9
