@@ -62,7 +62,7 @@ uv run python test.py \
   ```
 * The image and its corresponding label file have the same name and are stored in the same directory. The data file structure is as follows:
   ```
-  .
+  dataset
   ├── train
   │   ├── 000001.jpg
   │   ├── 000001.txt
@@ -104,7 +104,7 @@ uv run python test.py \
   ```
 * The directory structure of the finally constructed training data set is as follows:
   ```
-  .
+  dataset
   ├── category.names        # .names category label file
   ├── train                 # train dataset
   │   ├── 000001.jpg
