@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import io
+from contextlib import redirect_stdout, redirect_stderr
 from tqdm import tqdm
 from utils.tool import *
 
@@ -10,6 +12,7 @@ class CocoDetectionEvaluator():
     def __init__(self, names, device):
         self.device = device
         self.classes = []
+        self.last_per_class_ap = None
         with open(names, 'r') as f:
             for line in f.readlines():
                 self.classes.append(line.strip())
@@ -31,7 +34,8 @@ class CocoDetectionEvaluator():
                                                     "id": k, "iscrowd": 0})
                 
         coco_gt.dataset["categories"] = [{"id": i, "supercategory": c, "name": c} for i, c in enumerate(self.classes)]
-        coco_gt.createIndex()
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            coco_gt.createIndex()
 
         # Create preadict 
         coco_pred = COCO()
@@ -49,12 +53,12 @@ class CocoDetectionEvaluator():
                                                         "id": k})
                 
         coco_pred.dataset["categories"] = [{"id": i, "supercategory": c, "name": c} for i, c in enumerate(self.classes)]
-        coco_pred.createIndex()
-
-        coco_eval = COCOeval(coco_gt, coco_pred, "bbox")
-        coco_eval.evaluate()
-        coco_eval.accumulate()
-        coco_eval.summarize()
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            coco_pred.createIndex()
+            coco_eval = COCOeval(coco_gt, coco_pred, "bbox")
+            coco_eval.evaluate()
+            coco_eval.accumulate()
+            coco_eval.summarize()
         mAP05 = coco_eval.stats[1]
         self._print_per_class_ap(coco_eval)
         return mAP05
@@ -81,13 +85,16 @@ class CocoDetectionEvaluator():
         print(top)
         print(header)
         print(top)
+        results = []
         for k, name in enumerate(self.classes):
             precision = precisions[iou_index, :, k, area_index, maxdet_index]
             precision = precision[precision > -1]
             ap = float(np.mean(precision)) if precision.size else float("nan")
             ap_text = "nan" if np.isnan(ap) else f"{ap:.4f}"
+            results.append((name, ap))
             print(f"| {name.ljust(name_width)} | {ap_text.rjust(ap_width)} |")
         print(top)
+        self.last_per_class_ap = results
 
     def compute_map(self, val_dataloader, model):
         gts, pts = [], []

@@ -61,6 +61,9 @@ class ShuffleV2Block(nn.Module):
         x = x.reshape(2, -1, num_channels // 2, height, width)
         return x[0], x[1]
 
+DEFAULT_STAGE_REPEATS = [4, 8, 4]
+DEFAULT_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
+
 class ShuffleNetV2(nn.Module):
     def __init__(self, stage_repeats, stage_out_channels, load_param, in_channels=3):
         super(ShuffleNetV2, self).__init__()
@@ -109,8 +112,12 @@ class ShuffleNetV2(nn.Module):
         return P1, P2, P3
 
     def _initialize_weights(self):
-        if self.in_channels != 3:
-            print("Skip loading shufflenetv2.pth due to non-RGB input channels.")
+        if (
+            self.in_channels != 3
+            or self.stage_repeats != DEFAULT_STAGE_REPEATS
+            or self.stage_out_channels != DEFAULT_STAGE_OUT_CHANNELS
+        ):
+            print("Skip loading shufflenetv2.pth due to non-default backbone configuration.")
             return
         print("Initialize params from:%s"%"./module/shufflenetv2.pth")
         self.load_state_dict(torch.load("./module/shufflenetv2.pth"), strict = True)

@@ -5,11 +5,11 @@ from .shufflenetv2 import ShuffleNetV2
 from .custom_layers import DetectHead, SPP
 
 class Detector(nn.Module):
-    def __init__(self, category_num, load_param, input_channels=3):
+    def __init__(self, category_num, load_param, input_channels=3, stage_repeats=None, stage_out_channels=None):
         super(Detector, self).__init__()
 
-        self.stage_repeats = [4, 8, 4]
-        self.stage_out_channels = [-1, 24, 48, 96, 192]
+        self.stage_repeats = stage_repeats or [4, 8, 4]
+        self.stage_out_channels = stage_out_channels or [-1, 24, 48, 96, 192]
         self.backbone = ShuffleNetV2(
             self.stage_repeats,
             self.stage_out_channels,

@@ -5,13 +5,25 @@ import argparse
 import warnings
 import random
 import numpy as np
+import torch.nn.functional as F
+import cv2
+from datetime import datetime
+import yaml
 from tqdm import tqdm
 from torch import optim
 from torchsummary import summary
+from torch.utils.tensorboard import SummaryWriter
 
 from utils.tool import *
 from utils.datasets import *
-from utils.resize import resize_output_channels
+from utils.resize import (
+    resize_output_channels,
+    resize_image_numpy,
+    is_yuv422_mode,
+    is_y_only_mode,
+    is_y_bin_mode,
+    is_y_tri_mode,
+)
 from utils.evaluation import CocoDetectionEvaluator
 
 from module.loss import DetectorLoss
@@ -21,6 +33,8 @@ from module.detector import Detector
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 SEED = 42
+BASE_STAGE_REPEATS = [4, 8, 4]
+BASE_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
 
 def seed_everything(seed):
     random.seed(seed)
@@ -35,6 +49,23 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+def _validate_half_step(value, name):
+    if value is None:
+        return
+    if abs(value * 2 - round(value * 2)) > 1e-6:
+        raise ValueError(f"{name} must be in 0.5 increments.")
+
+def _scale_stage_list(values, mult, keep_first=False):
+    if mult is None:
+        return list(values)
+    scaled = []
+    for i, v in enumerate(values):
+        if keep_first and i == 0 and v < 0:
+            scaled.append(v)
+            continue
+        scaled.append(max(1, int(round(v * mult))))
+    return scaled
+
 # Select backend device: CUDA or CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -48,6 +79,14 @@ class FastestDet:
         parser.add_argument('--classes', type=str, default=None, help='comma-separated class ids')
         parser.add_argument('--exp-name', type=str, default="exp", help='experiment name (runs/<exp-name>)')
         parser.add_argument('--aug-yaml', type=str, default="utils/aug_headpose.yaml", help='augmentation yaml')
+        parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
+        parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.5 step)')
+        parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.5 step)')
+        parser.add_argument('--teacher-weight', type=str, default=None, help='teacher weight for distillation')
+        parser.add_argument('--teacher-stage-out-channels', type=float, default=None, help='teacher stage_out_channels multiplier (0.5 step)')
+        parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.5 step)')
+        parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
+        parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
         resize_group = parser.add_mutually_exclusive_group()
         resize_group.add_argument(
             "--resize-mode",
@@ -123,27 +162,112 @@ class FastestDet:
 
         opt = parser.parse_args()
         assert os.path.exists(opt.yaml), "Please provide a valid config file path."
+        if opt.teacher_weight is not None:
+            assert os.path.exists(opt.teacher_weight), "Please provide a valid teacher weight path."
+        if opt.resume is not None:
+            assert os.path.exists(opt.resume), "Please provide a valid resume checkpoint path."
+        self.cli_params = vars(opt)
+        with open(opt.yaml, 'r', encoding='utf-8') as f:
+            self.yaml_params = yaml.safe_load(f) or {}
 
         # Parse yaml config
         self.cfg = LoadYaml(opt.yaml)
         cli_classes = parse_classes(opt.classes)
         if cli_classes is not None:
             self.cfg.classes = cli_classes
+        self.val_interval = max(1, int(opt.val_interval))
         self.resize_mode = opt.resize_mode
         self.aug_yaml = opt.aug_yaml if opt.aug_yaml else None
         self.input_channels = resize_output_channels(self.resize_mode)
-        self.exp_dir = os.path.join("runs", opt.exp_name)
+        _validate_half_step(opt.stage_out_channels, "stage_out_channels")
+        _validate_half_step(opt.stage_repeats, "stage_repeats")
+        self.stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
+        self.stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
+        if opt.resume is not None:
+            self.exp_dir = os.path.dirname(os.path.abspath(opt.resume))
+        else:
+            self.exp_dir = os.path.join("runs", opt.exp_name)
         os.makedirs(self.exp_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=self.exp_dir)
+        self.log_path = os.path.join(self.exp_dir, "train.log")
+        self.log_file = open(self.log_path, "a", encoding="utf-8")
         self.best_map05 = float("-inf")
+        self.latest_map05 = None
+        self.best_epochs = []
+        self.start_epoch = 0
+        self.batch_num = 0
+        self.checkpoint_meta = None
+        self.label_names = self._load_label_names()
+        self._log_start()
         print(self.cfg)
+
+        self.use_ema = opt.use_ema
+        self.ema = None
 
         # Initialize model
         if opt.weight is not None:
             print("load weight from:%s"%opt.weight)
-            self.model = Detector(self.cfg.category_num, True, self.input_channels).to(device)
+            self.model = Detector(
+                self.cfg.category_num,
+                True,
+                self.input_channels,
+                stage_repeats=self.stage_repeats,
+                stage_out_channels=self.stage_out_channels,
+            ).to(device)
+
+        if self.use_ema:
+            self.ema = EMA(self.model, decay=0.9998)
+            self.ema.register()
             self.model.load_state_dict(torch.load(opt.weight))
         else:
-            self.model = Detector(self.cfg.category_num, False, self.input_channels).to(device)
+            self.model = Detector(
+                self.cfg.category_num,
+                False,
+                self.input_channels,
+                stage_repeats=self.stage_repeats,
+                stage_out_channels=self.stage_out_channels,
+            ).to(device)
+
+        self.teacher_model = None
+        self.teacher_stage_out_channels = None
+        self.teacher_stage_repeats = None
+        if opt.teacher_weight:
+            teacher_out_mult = opt.teacher_stage_out_channels if opt.teacher_stage_out_channels is not None else opt.stage_out_channels
+            teacher_repeat_mult = opt.teacher_stage_repeats if opt.teacher_stage_repeats is not None else opt.stage_repeats
+            _validate_half_step(teacher_out_mult, "teacher_stage_out_channels")
+            _validate_half_step(teacher_repeat_mult, "teacher_stage_repeats")
+
+            teacher_ckpt = torch.load(opt.teacher_weight, map_location=device)
+            use_ckpt_backbone = (
+                isinstance(teacher_ckpt, dict)
+                and "model" in teacher_ckpt
+                and "stage_out_channels" in teacher_ckpt
+                and "stage_repeats" in teacher_ckpt
+                and opt.teacher_stage_out_channels is None
+                and opt.teacher_stage_repeats is None
+            )
+            if use_ckpt_backbone:
+                teacher_out_channels = teacher_ckpt["stage_out_channels"]
+                teacher_repeats = teacher_ckpt["stage_repeats"]
+                teacher_state = teacher_ckpt["model"]
+            else:
+                teacher_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, teacher_out_mult, keep_first=True)
+                teacher_repeats = _scale_stage_list(BASE_STAGE_REPEATS, teacher_repeat_mult)
+                teacher_state = teacher_ckpt["model"] if isinstance(teacher_ckpt, dict) and "model" in teacher_ckpt else teacher_ckpt
+
+            self.teacher_stage_out_channels = teacher_out_channels
+            self.teacher_stage_repeats = teacher_repeats
+            self.teacher_model = Detector(
+                self.cfg.category_num,
+                True,
+                self.input_channels,
+                stage_repeats=teacher_repeats,
+                stage_out_channels=teacher_out_channels,
+            ).to(device)
+            self.teacher_model.load_state_dict(teacher_state)
+            self.teacher_model.eval()
+            for param in self.teacher_model.parameters():
+                param.requires_grad = False
 
         # # Print tensor shapes of network layers
         summary(self.model, input_size=(self.input_channels, self.cfg.input_height, self.cfg.input_width))
@@ -175,6 +299,7 @@ class FastestDet:
             self.cfg.classes,
             self.resize_mode,
         )
+        self.val_preview_paths = list(val_dataset.data_list[:10])
         train_dataset = TensorDataset(
             self.cfg.train_txt,
             self.cfg.input_width,
@@ -186,8 +311,8 @@ class FastestDet:
         )
 
         # Validation set
-        generator = torch.Generator()
-        generator.manual_seed(SEED)
+        self.data_gen = torch.Generator()
+        self.data_gen.manual_seed(SEED)
         self.val_dataloader = torch.utils.data.DataLoader(val_dataset,
                                                           batch_size=self.cfg.batch_size,
                                                           shuffle=False,
@@ -196,7 +321,7 @@ class FastestDet:
                                                           drop_last=False,
                                                           persistent_workers=True,
                                                           worker_init_fn=seed_worker,
-                                                          generator=generator,
+                                                          generator=self.data_gen,
                                                           pin_memory=True,
                                                           )
         # Training set
@@ -207,20 +332,23 @@ class FastestDet:
                                                             num_workers=12,
                                                             persistent_workers=True,
                                                             worker_init_fn=seed_worker,
-                                                            generator=generator,
+                                                            generator=self.data_gen,
                                                             pin_memory=True,
                                                             )
+        if opt.resume is not None:
+            self._load_checkpoint(opt.resume)
 
     def _prune_checkpoints(self, max_keep=10):
         checkpoints = []
         for name in os.listdir(self.exp_dir):
-            if not name.startswith("weight_AP05-") or not name.endswith(".pth"):
+            if not name.startswith("last_") or not name.endswith(".pth"):
                 continue
             path = os.path.join(self.exp_dir, name)
             epoch_num = None
             try:
-                epoch_part = name.split("_")[-1]
-                epoch_num = int(epoch_part.split("-")[0])
+                parts = name.split("_")
+                if len(parts) >= 3:
+                    epoch_num = int(parts[1])
             except (ValueError, IndexError):
                 epoch_num = None
             mtime = os.path.getmtime(path)
@@ -240,13 +368,14 @@ class FastestDet:
     def _prune_best_checkpoints(self, max_keep=10):
         checkpoints = []
         for name in os.listdir(self.exp_dir):
-            if not name.startswith("best_AP05-") or not name.endswith(".pth"):
+            if not name.startswith("best_") or not name.endswith(".pth"):
                 continue
             path = os.path.join(self.exp_dir, name)
             epoch_num = None
             try:
-                epoch_part = name.split("_")[-1]
-                epoch_num = int(epoch_part.split("-")[0])
+                parts = name.split("_")
+                if len(parts) >= 3:
+                    epoch_num = int(parts[1])
             except (ValueError, IndexError):
                 epoch_num = None
             mtime = os.path.getmtime(path)
@@ -263,13 +392,311 @@ class FastestDet:
             except OSError:
                 pass
 
+    def _prune_render_dirs(self, max_keep=10):
+        keep = set(self.best_epochs[-max_keep:])
+        for name in os.listdir(self.exp_dir):
+            if len(name) != 4 or not name.isdigit():
+                continue
+            epoch_num = int(name)
+            if epoch_num in keep:
+                continue
+            dir_path = os.path.join(self.exp_dir, name)
+            if not os.path.isdir(dir_path):
+                continue
+            try:
+                for root, _, files in os.walk(dir_path, topdown=False):
+                    for filename in files:
+                        try:
+                            os.remove(os.path.join(root, filename))
+                        except OSError:
+                            pass
+                os.rmdir(dir_path)
+            except OSError:
+                pass
+
+    def _log_line(self, line):
+        self.log_file.write(line + "\n")
+        self.log_file.flush()
+
+    def _log_start(self):
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._log_line(f"=== run start {ts} ===")
+        for key in sorted(self.cli_params.keys()):
+            if key == "yaml":
+                self._log_line(f"cli.{key}={self.cli_params[key]!r}")
+                if self.yaml_params:
+                    yaml_text = yaml.safe_dump(self.yaml_params, sort_keys=False)
+                    for line in yaml_text.rstrip().splitlines():
+                        self._log_line(f"yaml.{line}")
+                continue
+            self._log_line(f"cli.{key}={self.cli_params[key]!r}")
+        self._log_line("")
+
+    def _log_epoch(self, epoch, lr, train_metrics, distill_metrics, val_map05, last_name, best_name):
+        parts = [
+            f"epoch={epoch:04d}",
+            f"lr={lr:.6f}",
+            f"train_total={train_metrics['total']:.6f}",
+            f"train_iou={train_metrics['iou']:.6f}",
+            f"train_obj={train_metrics['obj']:.6f}",
+            f"train_cls={train_metrics['cls']:.6f}",
+        ]
+        if distill_metrics is not None:
+            parts.extend([
+                f"distill_total={distill_metrics['total']:.6f}",
+                f"distill_obj={distill_metrics['obj']:.6f}",
+                f"distill_box={distill_metrics['box']:.6f}",
+                f"distill_cls={distill_metrics['cls']:.6f}",
+            ])
+        if val_map05 is None:
+            parts.append("val_mAP50=na")
+        else:
+            parts.append(f"val_mAP50={val_map05:.6f}")
+        parts.append(f"best_mAP50={self.best_map05:.6f}")
+        if last_name:
+            parts.append(f"last_ckpt={last_name}")
+        if best_name:
+            parts.append(f"best_ckpt={best_name}")
+        self._log_line(" ".join(parts))
+
+    def _save_checkpoint(self, epoch, path):
+        state = {
+            "epoch": epoch,
+            "batch_num": self.batch_num,
+            "model": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "scheduler": self.scheduler.state_dict(),
+            "best_map05": self.best_map05,
+            "best_epochs": self.best_epochs,
+            "latest_map05": self.latest_map05,
+            "val_interval": self.val_interval,
+            "resize_mode": self.resize_mode,
+            "aug_yaml": self.aug_yaml,
+            "classes": self.cfg.classes,
+            "stage_out_channels": self.stage_out_channels,
+            "stage_repeats": self.stage_repeats,
+            "input_channels": self.input_channels,
+            "use_ema": self.use_ema,
+            "rng_state": torch.get_rng_state(),
+            "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+            "numpy_rng_state": np.random.get_state(),
+            "python_rng_state": random.getstate(),
+            "data_gen_state": self.data_gen.get_state() if hasattr(self, "data_gen") else None,
+            "meta": {
+                "yaml_path": self.cli_params.get("yaml"),
+                "yaml": self.yaml_params,
+                "cli": self.cli_params,
+                "derived": {
+                    "resize_mode": self.resize_mode,
+                    "stage_out_channels": self.stage_out_channels,
+                    "stage_repeats": self.stage_repeats,
+                    "input_channels": self.input_channels,
+                    "use_ema": self.use_ema,
+                },
+            },
+        }
+        if self.teacher_model is not None:
+            state["teacher_model"] = self.teacher_model.state_dict()
+            state["teacher_stage_out_channels"] = self.teacher_stage_out_channels
+            state["teacher_stage_repeats"] = self.teacher_stage_repeats
+        if self.use_ema and self.ema is not None:
+            state["ema_shadow"] = self.ema.shadow
+            state["ema_decay"] = self.ema.decay
+        torch.save(state, path)
+
+    def _load_checkpoint(self, path):
+        checkpoint = torch.load(path, map_location=device)
+        required_keys = {
+            "model",
+            "optimizer",
+            "scheduler",
+            "epoch",
+            "batch_num",
+            "rng_state",
+            "numpy_rng_state",
+            "python_rng_state",
+            "data_gen_state",
+        }
+        if not isinstance(checkpoint, dict) or not required_keys.issubset(checkpoint.keys()):
+            raise ValueError("Resume requires a full checkpoint saved in last_*.pth.")
+        self.checkpoint_meta = checkpoint.get("meta")
+        ckpt_stage_out = checkpoint.get("stage_out_channels")
+        ckpt_stage_repeats = checkpoint.get("stage_repeats")
+        ckpt_input_channels = checkpoint.get("input_channels")
+        if ckpt_stage_out is not None and ckpt_stage_out != self.stage_out_channels:
+            raise ValueError("stage_out_channels mismatch with checkpoint.")
+        if ckpt_stage_repeats is not None and ckpt_stage_repeats != self.stage_repeats:
+            raise ValueError("stage_repeats mismatch with checkpoint.")
+        if ckpt_input_channels is not None and ckpt_input_channels != self.input_channels:
+            raise ValueError("input_channels mismatch with checkpoint.")
+        self.model.load_state_dict(checkpoint["model"])
+        if "optimizer" in checkpoint:
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
+        if "scheduler" in checkpoint:
+            self.scheduler.load_state_dict(checkpoint["scheduler"])
+        ckpt_use_ema = checkpoint.get("use_ema", False)
+        if ckpt_use_ema and not self.use_ema:
+            self.use_ema = True
+            self.ema = EMA(self.model, decay=checkpoint.get("ema_decay", 0.9998))
+            self.ema.register()
+        if self.use_ema and self.ema is not None and "ema_shadow" in checkpoint:
+            self.ema.shadow = checkpoint["ema_shadow"]
+        if "teacher_model" in checkpoint and self.teacher_model is None:
+            teacher_out_channels = checkpoint.get("teacher_stage_out_channels")
+            teacher_repeats = checkpoint.get("teacher_stage_repeats")
+            if teacher_out_channels is None or teacher_repeats is None:
+                raise ValueError("Checkpoint is missing teacher backbone settings.")
+            self.teacher_stage_out_channels = teacher_out_channels
+            self.teacher_stage_repeats = teacher_repeats
+            self.teacher_model = Detector(
+                self.cfg.category_num,
+                True,
+                self.input_channels,
+                stage_repeats=teacher_repeats,
+                stage_out_channels=teacher_out_channels,
+            ).to(device)
+            self.teacher_model.eval()
+            for param in self.teacher_model.parameters():
+                param.requires_grad = False
+        if self.teacher_model is not None and "teacher_model" in checkpoint:
+            self.teacher_model.load_state_dict(checkpoint["teacher_model"])
+        self.best_map05 = checkpoint.get("best_map05", self.best_map05)
+        self.best_epochs = checkpoint.get("best_epochs", self.best_epochs)
+        self.latest_map05 = checkpoint.get("latest_map05", self.latest_map05)
+        self.start_epoch = int(checkpoint.get("epoch", 0)) + 1
+        self.batch_num = int(checkpoint.get("batch_num", 0))
+        if "rng_state" in checkpoint:
+            torch.set_rng_state(checkpoint["rng_state"])
+        if torch.cuda.is_available() and checkpoint.get("cuda_rng_state") is not None:
+            torch.cuda.set_rng_state_all(checkpoint["cuda_rng_state"])
+        if "numpy_rng_state" in checkpoint:
+            np.random.set_state(checkpoint["numpy_rng_state"])
+        if "python_rng_state" in checkpoint:
+            random.setstate(checkpoint["python_rng_state"])
+        if hasattr(self, "data_gen") and checkpoint.get("data_gen_state") is not None:
+            self.data_gen.set_state(checkpoint["data_gen_state"])
+
+    def _load_label_names(self):
+        names = []
+        if hasattr(self, "cfg") and self.cfg.names and os.path.exists(self.cfg.names):
+            with open(self.cfg.names, 'r') as f:
+                for line in f.readlines():
+                    name = line.strip()
+                    if name:
+                        names.append(name)
+        return names
+
+    def _color_for_class(self, class_id):
+        # Deterministic vivid colors (BGR) for readability.
+        palette = [
+            (255, 99, 71),   # tomato
+            (0, 255, 255),   # yellow
+            (50, 205, 50),   # lime green
+            (255, 215, 0),   # gold
+            (30, 144, 255),  # dodger blue
+            (255, 105, 180), # hot pink
+            (0, 191, 255),   # deep sky blue
+            (154, 205, 50),  # yellow green
+            (255, 165, 0),   # orange
+            (138, 43, 226),  # blue violet
+            (64, 224, 208),  # turquoise
+            (220, 20, 60),   # crimson
+        ]
+        if class_id < 0:
+            class_id = 0
+        return palette[class_id % len(palette)]
+
+    def _prepare_infer_input(self, img_bgr):
+        if self.resize_mode is None:
+            resized = cv2.resize(
+                img_bgr,
+                (self.cfg.input_width, self.cfg.input_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            img = resized.astype(np.float32) / 255.0
+        else:
+            img_float = img_bgr.astype(np.float32) / 255.0
+            if (
+                is_yuv422_mode(self.resize_mode)
+                or is_y_only_mode(self.resize_mode)
+                or is_y_bin_mode(self.resize_mode)
+                or is_y_tri_mode(self.resize_mode)
+            ):
+                img_float = cv2.cvtColor(img_float, cv2.COLOR_BGR2RGB)
+            img = resize_image_numpy(
+                img_float,
+                (self.cfg.input_height, self.cfg.input_width),
+                self.resize_mode,
+            )
+        img = np.ascontiguousarray(img)
+        tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).float().to(device)
+        return tensor
+
+    def _render_val_predictions(self, epoch, max_images=10):
+        out_dir = os.path.join(self.exp_dir, f"{epoch:04d}")
+        os.makedirs(out_dir, exist_ok=True)
+        image_paths = self.val_preview_paths[:max_images] if self.val_preview_paths else []
+        self.model.eval()
+        for path in image_paths:
+            img = cv2.imread(path)
+            if img is None:
+                continue
+            input_tensor = self._prepare_infer_input(img)
+            with torch.no_grad():
+                preds = self.model(input_tensor)
+                output = handle_preds(preds, device)
+            if not output:
+                continue
+            boxes = output[0].cpu().numpy() if output[0].numel() else []
+            h, w = img.shape[:2]
+            for box in boxes:
+                x1, y1, x2, y2, score, cls_id = box.tolist()
+                x1 = max(0, min(w - 1, int(x1 * w)))
+                y1 = max(0, min(h - 1, int(y1 * h)))
+                x2 = max(0, min(w - 1, int(x2 * w)))
+                y2 = max(0, min(h - 1, int(y2 * h)))
+                cls_id = int(cls_id)
+                label = self.label_names[cls_id] if cls_id < len(self.label_names) else str(cls_id)
+                color = self._color_for_class(cls_id)
+                cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(img, f"{label}:{score:.2f}", (x1, max(0, y1 - 5)), 0, 0.6, color, 2)
+            save_path = os.path.join(out_dir, os.path.basename(path))
+            cv2.imwrite(save_path, img)
+
+    def _distill_loss(self, preds, teacher_preds):
+        pred = preds.permute(0, 2, 3, 1)
+        teacher = teacher_preds.permute(0, 2, 3, 1)
+        pobj = pred[..., 0]
+        tobj = teacher[..., 0]
+        preg = pred[..., 1:5]
+        treg = teacher[..., 1:5]
+        pcls = pred[..., 5:]
+        tcls = teacher[..., 5:]
+        obj_loss = F.mse_loss(pobj, tobj)
+        box_loss = F.smooth_l1_loss(preg, treg)
+        cls_loss = F.kl_div(torch.log(pcls + 1e-9), tcls, reduction="batchmean")
+        total = obj_loss + box_loss + cls_loss
+        return obj_loss, box_loss, cls_loss, total
+
     def train(self):
         # Training loop
-        batch_num = 0
+        batch_num = self.batch_num
         input_is_normalized = getattr(self.train_dataloader.dataset, "input_is_normalized", False)
         print('Starting training for %g epochs...' % self.cfg.end_epoch)
-        for epoch in range(self.cfg.end_epoch + 1):
+        for epoch in range(self.start_epoch, self.cfg.end_epoch + 1):
             self.model.train()
+            epoch_iou = 0.0
+            epoch_obj = 0.0
+            epoch_cls = 0.0
+            epoch_total = 0.0
+            epoch_distill_obj = 0.0
+            epoch_distill_box = 0.0
+            epoch_distill_cls = 0.0
+            epoch_distill_total = 0.0
+            batch_count = 0
+            val_map05 = None
+            last_name = None
+            best_name = None
             pbar = tqdm(self.train_dataloader)
             for imgs, targets in pbar:
                 # Data preprocessing
@@ -282,10 +709,18 @@ class FastestDet:
 
                 # Loss calculation
                 iou, obj, cls, total = self.loss_function(preds, targets)
+                distill_obj = distill_box = distill_cls = distill_total = None
+                if self.teacher_model is not None:
+                    with torch.no_grad():
+                        teacher_preds = self.teacher_model(imgs)
+                    distill_obj, distill_box, distill_cls, distill_total = self._distill_loss(preds, teacher_preds)
+                    total = total + distill_total
                 # Backpropagation
                 total.backward()
                 # Update model parameters
                 self.optimizer.step()
+                if self.use_ema and self.ema is not None:
+                    self.ema.update()
                 self.optimizer.zero_grad()
 
                 # Learning rate warmup
@@ -301,26 +736,87 @@ class FastestDet:
                         epoch, lr, iou, obj, cls, total)
                 pbar.set_description(info)
                 batch_num += 1
+                self.batch_num = batch_num
+                batch_count += 1
+                epoch_iou += float(iou)
+                epoch_obj += float(obj)
+                epoch_cls += float(cls)
+                epoch_total += float(total)
+                if distill_total is not None:
+                    epoch_distill_obj += float(distill_obj)
+                    epoch_distill_box += float(distill_box)
+                    epoch_distill_cls += float(distill_cls)
+                    epoch_distill_total += float(distill_total)
 
             # Validate and save model
-            if epoch % 10 == 0 and epoch > 0:
+            if epoch % self.val_interval == 0 and epoch > 0:
                 # Model evaluation
                 self.model.eval()
                 print("compute mAP...")
+                if self.use_ema and self.ema is not None:
+                    self.ema.apply_shadow()
                 mAP05 = self.evaluation.compute_map(self.val_dataloader, self.model)
-                save_name = "weight_AP05-{:.6f}_{}-epoch.pth".format(mAP05, epoch)
-                save_path = os.path.join(self.exp_dir, save_name)
-                torch.save(self.model.state_dict(), save_path)
-                self._prune_checkpoints()
+                self.latest_map05 = mAP05
+                val_map05 = mAP05
+                self.writer.add_scalar("val/010_mAP50", mAP05, epoch)
+                if self.evaluation.last_per_class_ap:
+                    for idx, (name, ap) in enumerate(self.evaluation.last_per_class_ap):
+                        if np.isnan(ap):
+                            continue
+                        self.writer.add_scalar(f"val/001_AP50_{idx:03d}_{name}", ap, epoch)
                 if mAP05 > self.best_map05:
                     self.best_map05 = mAP05
-                    best_name = "best_AP05-{:.6f}_{}-epoch.pth".format(mAP05, epoch)
+                    self.best_epochs.append(epoch)
+                    best_name = "best_{:04d}_{:.6f}.pth".format(epoch, mAP05)
                     best_path = os.path.join(self.exp_dir, best_name)
-                    torch.save(self.model.state_dict(), best_path)
+                    self._save_checkpoint(epoch, best_path)
                     self._prune_best_checkpoints()
+                    self._prune_render_dirs()
+                self._render_val_predictions(epoch)
+                if self.use_ema and self.ema is not None:
+                    self.ema.restore()
+                self._prune_render_dirs()
+
+            last_map05 = self.latest_map05 if self.latest_map05 is not None else 0.0
+            save_name = "last_{:04d}_{:.6f}.pth".format(epoch, last_map05)
+            save_path = os.path.join(self.exp_dir, save_name)
+            self._save_checkpoint(epoch, save_path)
+            last_name = save_name
+            self._prune_checkpoints()
+
+            train_metrics = None
+            distill_metrics = None
+            if batch_count > 0:
+                inv = 1.0 / batch_count
+                train_metrics = {
+                    "total": epoch_total * inv,
+                    "iou": epoch_iou * inv,
+                    "obj": epoch_obj * inv,
+                    "cls": epoch_cls * inv,
+                }
+                self.writer.add_scalar("train/100_loss_total", train_metrics["total"], epoch)
+                self.writer.add_scalar("train/101_loss_iou", train_metrics["iou"], epoch)
+                self.writer.add_scalar("train/102_loss_obj", train_metrics["obj"], epoch)
+                self.writer.add_scalar("train/103_loss_cls", train_metrics["cls"], epoch)
+                if self.teacher_model is not None:
+                    distill_metrics = {
+                        "total": epoch_distill_total * inv,
+                        "obj": epoch_distill_obj * inv,
+                        "box": epoch_distill_box * inv,
+                        "cls": epoch_distill_cls * inv,
+                    }
+                    self.writer.add_scalar("train/110_loss_distill_total", distill_metrics["total"], epoch)
+                    self.writer.add_scalar("train/111_loss_distill_obj", distill_metrics["obj"], epoch)
+                    self.writer.add_scalar("train/112_loss_distill_box", distill_metrics["box"], epoch)
+                    self.writer.add_scalar("train/113_loss_distill_cls", distill_metrics["cls"], epoch)
+                self.writer.add_scalar("train/120_lr", lr, epoch)
 
             # Adjust learning rate
             self.scheduler.step()
+            if train_metrics is not None:
+                self._log_epoch(epoch, lr, train_metrics, distill_metrics, val_map05, last_name, best_name)
+        self.writer.close()
+        self.log_file.close()
 
 if __name__ == "__main__":
     model = FastestDet()
