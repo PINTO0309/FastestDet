@@ -101,7 +101,6 @@ uv run python test.py \
   car
   motorbike
   ...
-
   ```
 * The directory structure of the finally constructed training data set is as follows:
   ```
