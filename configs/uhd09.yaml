@@ -1,0 +1,18 @@
+DATASET:
+  TRAIN: "dataset/uhd/train.txt"
+  VAL: "dataset/uhd/val.txt"
+  NAMES: "configs/uhd09.names"
+MODEL:
+  NC: 9
+  INPUT_WIDTH: 64
+  INPUT_HEIGHT: 64
+TRAIN:
+  LR: 0.001
+  THRESH: 0.15
+  WARMUP: true
+  BATCH_SIZE: 64
+  END_EPOCH: 300
+  MILESTIONES:
+    - 100
+    - 200
+    - 250

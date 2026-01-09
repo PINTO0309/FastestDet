@@ -27,8 +27,8 @@ class FastestDet:
         assert os.path.exists(opt.yaml), "请指定正确的配置文件路径"
 
         # 解析yaml配置文件
-        self.cfg = LoadYaml(opt.yaml)    
-        print(self.cfg) 
+        self.cfg = LoadYaml(opt.yaml)
+        print(self.cfg)
 
         # 初始化模型结构
         if opt.weight is not None:
@@ -55,7 +55,7 @@ class FastestDet:
 
         # 定义损失函数
         self.loss_function = DetectorLoss(device)
-        
+
         # 定义验证函数
         self.evaluation = CocoDetectionEvaluator(self.cfg.names, device)
 
