@@ -62,16 +62,17 @@ class ShuffleV2Block(nn.Module):
         return x[0], x[1]
 
 class ShuffleNetV2(nn.Module):
-    def __init__(self, stage_repeats, stage_out_channels, load_param):
+    def __init__(self, stage_repeats, stage_out_channels, load_param, in_channels=3):
         super(ShuffleNetV2, self).__init__()
 
         self.stage_repeats = stage_repeats
         self.stage_out_channels = stage_out_channels
+        self.in_channels = in_channels
 
         # building first layer
         input_channel = self.stage_out_channels[1]
         self.first_conv = nn.Sequential(
-            nn.Conv2d(3, input_channel, 3, 2, 1, bias=False),
+            nn.Conv2d(in_channels, input_channel, 3, 2, 1, bias=False),
             nn.BatchNorm2d(input_channel),
             nn.ReLU(inplace=True),
         )
@@ -108,5 +109,8 @@ class ShuffleNetV2(nn.Module):
         return P1, P2, P3
 
     def _initialize_weights(self):
+        if self.in_channels != 3:
+            print("Skip loading shufflenetv2.pth due to non-RGB input channels.")
+            return
         print("Initialize params from:%s"%"./module/shufflenetv2.pth")
         self.load_state_dict(torch.load("./module/shufflenetv2.pth"), strict = True)

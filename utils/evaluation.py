@@ -56,21 +56,55 @@ class CocoDetectionEvaluator():
         coco_eval.accumulate()
         coco_eval.summarize()
         mAP05 = coco_eval.stats[1]
+        self._print_per_class_ap(coco_eval)
         return mAP05
+
+    def _print_per_class_ap(self, coco_eval):
+        precisions = coco_eval.eval.get("precision")
+        if precisions is None:
+            return
+        iou_thrs = coco_eval.params.iouThrs
+        iou_index = np.where(np.isclose(iou_thrs, 0.5))[0]
+        if iou_index.size == 0:
+            iou_index = np.array([0])
+        iou_index = int(iou_index[0])
+        area_labels = getattr(coco_eval.params, "areaRngLbl", ["all"])
+        area_index = area_labels.index("all") if "all" in area_labels else 0
+        maxdet_index = len(coco_eval.params.maxDets) - 1
+
+        title = "Per-class AP@0.5"
+        name_width = max([len(name) for name in self.classes] + [5])
+        ap_width = 7
+        top = "+" + "-" * (name_width + 2) + "+" + "-" * (ap_width + 2) + "+"
+        header = f"| {'Class'.ljust(name_width)} | {'AP'.rjust(ap_width)} |"
+        print(title)
+        print(top)
+        print(header)
+        print(top)
+        for k, name in enumerate(self.classes):
+            precision = precisions[iou_index, :, k, area_index, maxdet_index]
+            precision = precision[precision > -1]
+            ap = float(np.mean(precision)) if precision.size else float("nan")
+            ap_text = "nan" if np.isnan(ap) else f"{ap:.4f}"
+            print(f"| {name.ljust(name_width)} | {ap_text.rjust(ap_width)} |")
+        print(top)
 
     def compute_map(self, val_dataloader, model):
         gts, pts = [], []
+        input_is_normalized = getattr(val_dataloader.dataset, "input_is_normalized", False)
         pbar = tqdm(val_dataloader)
         for i, (imgs, targets) in enumerate(pbar):
-            # 数据预处理
-            imgs = imgs.to(self.device).float() / 255.0
+            # Data preprocessing
+            imgs = imgs.to(self.device).float()
+            if not input_is_normalized:
+                imgs = imgs / 255.0
             with torch.no_grad():
-                # 模型预测
+                # Model prediction
                 preds = model(imgs)
-                # 特征图后处理
+                # Feature map post-processing
                 output = handle_preds(preds, self.device, 0.001)
 
-            # 检测结果
+            # Detection results
             N, _, H, W = imgs.shape
             for p in output:
                 pbboxes = []
@@ -82,7 +116,7 @@ class CocoDetectionEvaluator():
                     pbboxes.append([category, score, x1, y1, x2, y2])
                 pts.append(np.array(pbboxes))
 
-            # 标注结果
+            # Ground truth
             for n in range(N):
                 tbboxes = []
                 for t in targets:

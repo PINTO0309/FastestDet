@@ -52,7 +52,7 @@ bool scoreSort(TargetBox a, TargetBox b)
     return (a.score > b.score); 
 }
 
-//NMS处理
+// NMS
 int nmsHandle(std::vector<TargetBox> &src_boxes, std::vector<TargetBox> &dst_boxes)
 {
     std::vector<int> picked;
@@ -64,9 +64,9 @@ int nmsHandle(std::vector<TargetBox> &src_boxes, std::vector<TargetBox> &dst_box
         int keep = 1;
         for (int j = 0; j < picked.size(); j++) 
         {
-            //交集
+            // Intersection
             float inter_area = IntersectionArea(src_boxes[i], src_boxes[picked[j]]);
-            //并集
+            // Union
             float union_area = src_boxes[i].area() + src_boxes[picked[j]].area() - inter_area;
             float IoU = inter_area / union_area;
 
@@ -92,7 +92,7 @@ int nmsHandle(std::vector<TargetBox> &src_boxes, std::vector<TargetBox> &dst_box
 
 int main()
 {
-    // 类别标签
+    // Class labels
     static const char* class_names[] = {
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
         "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
@@ -104,23 +104,23 @@ int main()
         "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
         "hair drier", "toothbrush"
     };
-    // 类别数量
+    // Number of classes
     int class_num = sizeof(class_names) / sizeof(class_names[0]);
 
-    // 阈值
+    // Threshold
     float thresh = 0.65;
 
-    // 模型输入宽高
+    // Model input size
     int input_width = 352;
     int input_height = 352;
 
-    // 加载模型
+    // Load model
     ncnn::Net net;
     net.load_param("FastestDet.param");
     net.load_model("FastestDet.bin");  
     printf("ncnn model load sucess...\n");
 
-    // 加载图片
+    // Load image
     cv::Mat img = cv::imread("3.jpg");
     int img_width = img.cols;
     int img_height = img.rows;
@@ -153,11 +153,11 @@ int main()
     {
         for (int w = 0; w < output.h; w++)
         {   
-            // 前景概率
+            // Objectness score
             int obj_score_index = (0 * output.h * output.w) + (h * output.w) + w;
             float obj_score = output[obj_score_index];
 
-            // 解析类别
+            // Parse class
             int category;
             float max_score = 0.0f;
             for (size_t i = 0; i < class_num; i++)
@@ -172,10 +172,10 @@ int main()
             }
             float score = pow(max_score, 0.4) * pow(obj_score, 0.6);
 
-            // 阈值筛选
+            // Threshold filtering
             if(score > thresh) 
             {
-                // 解析坐标
+                // Parse coordinates
                 int x_offset_index = (1 * output.h * output.w) + (h * output.w) + w;
                 int y_offset_index = (2 * output.h * output.w) + (h * output.w) + w;
                 int box_width_index = (3 * output.h * output.w) + (h * output.w) + w;
@@ -199,11 +199,11 @@ int main()
         }
     }
 
-    // NMS处理
+    // NMS
     std::vector<TargetBox> nms_boxes;
     nmsHandle(target_boxes, nms_boxes);
 
-    // 打印耗时
+    // Print elapsed time
     double end = ncnn::get_current_time();
     double time = end - start;
     printf("Time:%7.2f ms\n",time);

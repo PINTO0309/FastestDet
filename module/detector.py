@@ -5,12 +5,17 @@ from .shufflenetv2 import ShuffleNetV2
 from .custom_layers import DetectHead, SPP
 
 class Detector(nn.Module):
-    def __init__(self, category_num, load_param):
+    def __init__(self, category_num, load_param, input_channels=3):
         super(Detector, self).__init__()
 
         self.stage_repeats = [4, 8, 4]
         self.stage_out_channels = [-1, 24, 48, 96, 192]
-        self.backbone = ShuffleNetV2(self.stage_repeats, self.stage_out_channels, load_param)
+        self.backbone = ShuffleNetV2(
+            self.stage_repeats,
+            self.stage_out_channels,
+            load_param,
+            in_channels=input_channels,
+        )
 
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
         self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
@@ -29,7 +34,7 @@ class Detector(nn.Module):
         return self.detect_head(y)
 
 if __name__ == "__main__":
-    model = Detector(80, False)
+    model = Detector(80, False, input_channels=3)
     test_data = torch.rand(1, 3, 352, 352)
     torch.onnx.export(model,                    #model being run
                      test_data,                 # model input (or a tuple for multiple inputs)
@@ -37,4 +42,3 @@ if __name__ == "__main__":
                      export_params=True,        # store the trained parameter weights inside the model file
                      opset_version=11,          # the ONNX version to export the model to
                      do_constant_folding=True)  # whether to execute constant folding for optimization
-

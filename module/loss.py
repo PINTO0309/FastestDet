@@ -52,60 +52,62 @@ class DetectorLoss(nn.Module):
         
     def build_target(self, preds, targets):
         N, C, H, W = preds.shape
-        # batch存在标注的数据
+        # Ground truth present in the batch
         gt_box, gt_cls, ps_index = [], [], []
-        # 每个网格的四个顶点为box中心点会归的基准点
+        # Offsets for assigning center points to neighboring grid cells
         quadrant = torch.tensor([[0, 0], [1, 0], 
                                  [0, 1], [1, 1]], device=self.device)
 
         if targets.shape[0] > 0:
-            # 将坐标映射到特征图尺度上
+            # Map coordinates to feature map scale
             scale = torch.ones(6).to(self.device)
             scale[2:] = torch.tensor(preds.shape)[[3, 2, 3, 2]]
             gt = targets * scale
 
-            # 扩展维度复制数据
+            # Repeat data along a new dimension
             gt = gt.repeat(4, 1, 1)
 
-            # 过滤越界坐标
+            # Filter out-of-bounds coordinates
             quadrant = quadrant.repeat(gt.size(1), 1, 1).permute(1, 0, 2)
             gij = gt[..., 2:4].long() + quadrant
             j = torch.where(gij < H, gij, 0).min(dim=-1)[0] > 0 
 
-            # 前景的位置下标
+            # Foreground indices
             gi, gj = gij[j].T
             batch_index = gt[..., 0].long()[j]
             ps_index.append((batch_index, gi, gj))
 
-            # 前景的box
+            # Foreground boxes
             gbox = gt[..., 2:][j]
             gt_box.append(gbox)
             
-            # 前景的类别
+            # Foreground classes
             gt_cls.append(gt[..., 1].long()[j])
 
         return gt_box, gt_cls, ps_index
 
         
     def forward(self, preds, targets):
-        # 初始化loss值
-        ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
-        cls_loss, iou_loss, obj_loss = ft([0]), ft([0]), ft([0])
+        # Initialize loss values
+        device = preds.device
+        cls_loss = torch.zeros(1, device=device)
+        iou_loss = torch.zeros(1, device=device)
+        obj_loss = torch.zeros(1, device=device)
 
-        # 定义obj和cls的损失函数
+        # Define objectness and class losses
         BCEcls = nn.NLLLoss() 
-        # smmoth L1相比于bce效果最好
+        # Smooth L1 works best compared to BCE here
         BCEobj = nn.SmoothL1Loss(reduction='none')
         
-        # 构建ground truth
+        # Build ground truth
         gt_box, gt_cls, ps_index = self.build_target(preds, targets)
 
         pred = preds.permute(0, 2, 3, 1)
-        # 前背景分类分支
+        # Objectness branch
         pobj = pred[:, :, :, 0]
-        # 检测框回归分支
+        # Box regression branch
         preg = pred[:, :, :, 1:5]
-        # 目标类别分类分支
+        # Class prediction branch
         pcls = pred[:, :, :, 5:]
 
         N, H, W, C = pred.shape
@@ -113,7 +115,7 @@ class DetectorLoss(nn.Module):
         factor = torch.ones_like(pobj) * 0.75
 
         if len(gt_box) > 0:
-            # 计算检测框回归loss
+            # Compute box regression loss
             b, gx, gy = ps_index[0]
             ptbox = torch.ones((preg[b, gy, gx].shape)).to(self.device)
             ptbox[:, 0] = preg[b, gy, gx][:, 0].tanh() + gx
@@ -121,30 +123,30 @@ class DetectorLoss(nn.Module):
             ptbox[:, 2] = preg[b, gy, gx][:, 2].sigmoid() * W
             ptbox[:, 3] = preg[b, gy, gx][:, 3].sigmoid() * H
 
-            # 计算检测框IOU loss
+            # Compute IoU loss
             iou = self.bbox_iou(ptbox, gt_box[0])
             # Filter
             f = iou > iou.mean()
             b, gy, gx = b[f], gy[f], gx[f]
 
-            # 计算iou loss
+            # Compute IoU loss
             iou = iou[f]
             iou_loss =  (1.0 - iou).mean() 
 
-            # 计算目标类别分类分支loss
+            # Compute class loss
             ps = torch.log(pcls[b, gy, gx])
             cls_loss = BCEcls(ps, gt_cls[0][f])
 
             # iou aware
             tobj[b, gy, gx] = iou.float()
-            # 统计每个图片正样本的数量
+            # Count positive samples per image
             n = torch.bincount(b)
             factor[b, gy, gx] =  (1. / (n[b] / (H * W))) * 0.25
 
-        # 计算前背景分类分支loss
+        # Compute objectness loss
         obj_loss = (BCEobj(pobj, tobj) * factor).mean()
 
-        # 计算总loss
+        # Compute total loss
         loss = (iou_loss * 8) + (obj_loss * 16) + cls_loss                      
               
         return iou_loss, obj_loss, cls_loss, loss
