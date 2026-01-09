@@ -734,7 +734,7 @@ class FastestDet:
             val_map05 = None
             last_name = None
             best_name = None
-            pbar = tqdm(self.train_dataloader)
+            pbar = tqdm(self.train_dataloader, dynamic_ncols=True)
             for imgs, targets in pbar:
                 # Data preprocessing
                 imgs = imgs.to(device).float()
