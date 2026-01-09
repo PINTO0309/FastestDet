@@ -35,7 +35,7 @@ Qualcomm|Snapdragon 835(arm-cpu)|Android(aarch64)|ncnn|32.34ms|16.24ms
 Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
 # How to use
 ## Dependent installation
-```
+```bash
 git clone https://github.com/PINTO0309/FastestDet.git && cd FastestDet
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
@@ -43,8 +43,11 @@ source .venv/bin/activate
 ```
 ## Test
 * Picture test
-```
-python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_280-epoch.pth --img data/3.jpg
+```bash
+uv run python test.py \
+--yaml configs/coco.yaml \
+--weight weights/weight_AP05:0.253207_280-epoch.pth \
+--img data/3.jpg
 ```
 <div align=center>
 <img src="https://github.com/dog-qiuqiu/FastestDet/blob/main/result.png"> />
@@ -146,14 +149,17 @@ python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_2
   ```
 ### Train
 * Perform training tasks
-  ```
-  python3 train.py --yaml configs/coco.yaml
-  ```
+```bash
+uv run python train.py \
+--yaml configs/coco.yaml
+```
 ### Evaluation
 * Calculate map evaluation
-  ```
-  python3 eval.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_280-epoch.pth
-  ```
+```bash
+uv run python eval.py \
+--yaml configs/coco.yaml \
+--weight weights/weight_AP05:0.253207_280-epoch.pth
+```
 * COCO2017 evaluation
   ```
   creating index...
@@ -182,28 +188,35 @@ python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_2
 # Deploy
 ## Export onnx
 * You can export .onnx by adding the --onnx option when executing test.py
-  ```
-  python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_280-epoch.pth --img data/3.jpg --onnx
-  ```
+```bash
+uv run python test.py \
+--yaml configs/coco.yaml \
+--weight weights/weight_AP05:0.253207_280-epoch.pth \
+--img data/3.jpg \
+--onnx
+```
 ## Export torchscript
 * You can export .pt by adding the --torchscript option when executing test.py
-  ```
-  python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_280-epoch.pth --img data/3.jpg --torchscript
-  ```
+```bash
+uv run python test.py \
+--yaml configs/coco.yaml \
+--weight weights/weight_AP05:0.253207_280-epoch.pth \
+--img data/3.jpg \
+--torchscript
+```
 ## NCNN
 * Need to compile ncnn and opencv in advance and modify the path in build.sh
-  ```
-  cd example/ncnn/
-  sh build.sh
-  ./FastestDet
-  ```
+```bash
+cd example/ncnn/
+sh build.sh
+./FastestDet
+```
 ## onnx-runtime
 * You can learn about the pre and post-processing methods of FastestDet in this Sample
-  ```
-  cd example/onnx-runtime
-  pip install onnx-runtime
-  python3 runtime.py
-  ```
+```bash
+cd example/onnx-runtime
+uv run python runtime.py
+```
 # Citation
 * If you find this project useful in your research, please consider cite:
   ```
