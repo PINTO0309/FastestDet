@@ -151,6 +151,51 @@ uv run python test.py \
 ```bash
 uv run python train.py \
 --yaml configs/coco.yaml
+
+uv run python train.py \
+--yaml configs/uhd09.yaml \
+--opencv_inter_nearest \
+--stage-out-channels 1.0 \
+--stage-repeats 1.0 \
+--exp-name exp_x1_0 \
+--use-ema \
+--use-amp
+
+uv run python train.py \
+--yaml configs/uhd09.yaml \
+--opencv_inter_nearest \
+--stage-out-channels 1.5 \
+--stage-repeats 1.5 \
+--exp-name exp_x1_5 \
+--use-ema \
+--use-amp
+
+uv run python train.py \
+--yaml configs/uhd09.yaml \
+--opencv_inter_nearest \
+--stage-out-channels 2.0 \
+--stage-repeats 2.0 \
+--exp-name exp_x2_0 \
+--use-ema \
+--use-amp
+
+uv run python train.py \
+--yaml configs/uhd09.yaml \
+--opencv_inter_nearest \
+--stage-out-channels 2.5 \
+--stage-repeats 2.5 \
+--exp-name exp_x2_5 \
+--use-ema \
+--use-amp
+
+uv run python train.py \
+--yaml configs/uhd09.yaml \
+--opencv_inter_nearest \
+--stage-out-channels 3.0 \
+--stage-repeats 3.0 \
+--exp-name exp_x3_0 \
+--use-ema \
+--use-amp
 ```
 ### Evaluation
 * Calculate map evaluation

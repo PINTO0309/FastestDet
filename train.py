@@ -87,6 +87,7 @@ class FastestDet:
         parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.5 step)')
         parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
+        parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         resize_group = parser.add_mutually_exclusive_group()
         resize_group.add_argument(
             "--resize-mode",
@@ -203,6 +204,8 @@ class FastestDet:
 
         self.use_ema = opt.use_ema
         self.ema = None
+        self.use_amp = opt.use_amp and torch.cuda.is_available()
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
 
         # Initialize model
         if opt.weight is not None:
@@ -501,6 +504,7 @@ class FastestDet:
             "stage_repeats": self.stage_repeats,
             "input_channels": self.input_channels,
             "use_ema": self.use_ema,
+            "use_amp": self.use_amp,
             "rng_state": torch.get_rng_state(),
             "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
             "numpy_rng_state": np.random.get_state(),
@@ -516,6 +520,7 @@ class FastestDet:
                     "stage_repeats": self.stage_repeats,
                     "input_channels": self.input_channels,
                     "use_ema": self.use_ema,
+                    "use_amp": self.use_amp,
                 },
             },
         }
@@ -526,6 +531,8 @@ class FastestDet:
         if self.use_ema and self.ema is not None:
             state["ema_shadow"] = self.ema.shadow
             state["ema_decay"] = self.ema.decay
+        if self.use_amp and self.scaler is not None:
+            state["amp_scaler"] = self.scaler.state_dict()
         torch.save(state, path)
 
     def _load_checkpoint(self, path):
@@ -559,12 +566,18 @@ class FastestDet:
         if "scheduler" in checkpoint:
             self.scheduler.load_state_dict(checkpoint["scheduler"])
         ckpt_use_ema = checkpoint.get("use_ema", False)
+        ckpt_use_amp = checkpoint.get("use_amp", False)
         if ckpt_use_ema and not self.use_ema:
             self.use_ema = True
             self.ema = EMA(self.model, decay=checkpoint.get("ema_decay", 0.9998))
             self.ema.register()
         if self.use_ema and self.ema is not None and "ema_shadow" in checkpoint:
             self.ema.shadow = checkpoint["ema_shadow"]
+        if ckpt_use_amp and not self.use_amp and torch.cuda.is_available():
+            self.use_amp = True
+            self.scaler = torch.cuda.amp.GradScaler(enabled=True)
+        if self.use_amp and self.scaler is not None and "amp_scaler" in checkpoint:
+            self.scaler.load_state_dict(checkpoint["amp_scaler"])
         if "teacher_model" in checkpoint and self.teacher_model is None:
             teacher_out_channels = checkpoint.get("teacher_stage_out_channels")
             teacher_repeats = checkpoint.get("teacher_stage_repeats")
@@ -729,20 +742,22 @@ class FastestDet:
                     imgs = imgs / 255.0
                 targets = targets.to(device)
                 # Model forward
-                preds = self.model(imgs)
+                with torch.cuda.amp.autocast(enabled=self.use_amp):
+                    preds = self.model(imgs)
 
-                # Loss calculation
-                iou, obj, cls, total = self.loss_function(preds, targets)
-                distill_obj = distill_box = distill_cls = distill_total = None
-                if self.teacher_model is not None:
-                    with torch.no_grad():
-                        teacher_preds = self.teacher_model(imgs)
-                    distill_obj, distill_box, distill_cls, distill_total = self._distill_loss(preds, teacher_preds)
-                    total = total + distill_total
+                    # Loss calculation
+                    iou, obj, cls, total = self.loss_function(preds, targets)
+                    distill_obj = distill_box = distill_cls = distill_total = None
+                    if self.teacher_model is not None:
+                        with torch.no_grad():
+                            teacher_preds = self.teacher_model(imgs)
+                        distill_obj, distill_box, distill_cls, distill_total = self._distill_loss(preds, teacher_preds)
+                        total = total + distill_total
                 # Backpropagation
-                total.backward()
+                self.scaler.scale(total).backward()
                 # Update model parameters
-                self.optimizer.step()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
                 if self.use_ema and self.ema is not None:
                     self.ema.update()
                 self.optimizer.zero_grad()
