@@ -35,15 +35,17 @@ Qualcomm|Snapdragon 835(arm-cpu)|Android(aarch64)|ncnn|32.34ms|16.24ms
 Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
 # How to use
 ## Dependent installation
-* PiP(Note pytorch CUDA version selection)
-  ```
-  pip install -r requirements.txt
-  ```
+```
+git clone https://github.com/PINTO0309/FastestDet.git && cd FastestDet
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+source .venv/bin/activate
+```
 ## Test
 * Picture test
-  ```
-  python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_280-epoch.pth --img data/3.jpg
-  ```
+```
+python3 test.py --yaml configs/coco.yaml --weight weights/weight_AP05:0.253207_280-epoch.pth --img data/3.jpg
+```
 <div align=center>
 <img src="https://github.com/dog-qiuqiu/FastestDet/blob/main/result.png"> />
 </div>
@@ -74,7 +76,7 @@ Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
       └── 000070.txt
   ```
 * Generate a dataset path .txt file, the example content is as follows：
-  
+
   train.txt
   ```
   /home/qiuqiu/Desktop/dataset/train/000001.jpg
@@ -88,7 +90,7 @@ Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
   /home/qiuqiu/Desktop/dataset/val/000057.jpg
   ```
 * Generate the .names category label file, the sample content is as follows:
- 
+
   category.names
   ```
   person
@@ -96,7 +98,7 @@ Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
   car
   motorbike
   ...
-  
+
   ```
 * The directory structure of the finally constructed training data set is as follows:
   ```
@@ -125,7 +127,7 @@ Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
   ```
   DATASET:
     TRAIN: "/home/qiuqiu/Desktop/coco2017/train2017.txt"  # Train dataset path .txt file
-    VAL: "/home/qiuqiu/Desktop/coco2017/val2017.txt"      # Val dataset path .txt file 
+    VAL: "/home/qiuqiu/Desktop/coco2017/val2017.txt"      # Val dataset path .txt file
     NAMES: "dataset/coco128/coco.names"                   # .names category label file
   MODEL:
     NC: 80                                                # Number of detection categories
