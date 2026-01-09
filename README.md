@@ -82,15 +82,15 @@ uv run python test.py \
 
   train.txt
   ```
-  /home/qiuqiu/Desktop/dataset/train/000001.jpg
-  /home/qiuqiu/Desktop/dataset/train/000002.jpg
-  /home/qiuqiu/Desktop/dataset/train/000003.jpg
+  dataset/train/000001.jpg
+  dataset/train/000002.jpg
+  dataset/train/000003.jpg
   ```
   val.txt
   ```
-  /home/qiuqiu/Desktop/dataset/val/000070.jpg
-  /home/qiuqiu/Desktop/dataset/val/000043.jpg
-  /home/qiuqiu/Desktop/dataset/val/000057.jpg
+  dataset/val/000070.jpg
+  dataset/val/000043.jpg
+  dataset/val/000057.jpg
   ```
 * Generate the .names category label file, the sample content is as follows:
 
