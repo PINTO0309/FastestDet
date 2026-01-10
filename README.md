@@ -163,6 +163,8 @@ uv run python train.py \
 --stage-out-channels 1.00 \
 --stage-repeats 1.00 \
 --exp-name exp_x1_00_x1_00 \
+--use-skip-residual \
+--use-ese \
 --use-ema \
 --use-amp
 
@@ -175,6 +177,8 @@ uv run python train.py \
 --stage-out-channels 1.25 \
 --stage-repeats 1.00 \
 --exp-name exp_x1_25_x1_00 \
+--use-skip-residual \
+--use-ese \
 --use-ema \
 --use-amp
 
@@ -187,6 +191,8 @@ uv run python train.py \
 --stage-out-channels 1.50 \
 --stage-repeats 1.00 \
 --exp-name exp_x1_50_x1_00 \
+--use-skip-residual \
+--use-ese \
 --use-ema \
 --use-amp
 
@@ -199,6 +205,8 @@ uv run python train.py \
 --stage-out-channels 1.75 \
 --stage-repeats 1.00 \
 --exp-name exp_x1_75_x1_00 \
+--use-skip-residual \
+--use-ese \
 --use-ema \
 --use-amp
 
@@ -211,6 +219,8 @@ uv run python train.py \
 --stage-out-channels 2.00 \
 --stage-repeats 1.00 \
 --exp-name exp_x2_00_x1_00 \
+--use-skip-residual \
+--use-ese \
 --use-ema \
 --use-amp
 ```
