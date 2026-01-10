@@ -7,7 +7,7 @@ MODEL:
   INPUT_WIDTH: 128
   INPUT_HEIGHT: 128
 # TRAIN:
-#   LR: 0.01
+#   LR: 0.0001
 #   WARMUP: true
 #   BATCH_SIZE: 64
 #   END_EPOCH: 300
@@ -16,7 +16,7 @@ MODEL:
 #   SCHEDULER: cosine
 #   MIN_LR: 0.0
 #   T_MAX: 300
-#   MILESTIONES:
+#   CLASSES: 7,8,9,10,11,12,13,14,15
 TRAIN:
   LR: 0.0001
   WARMUP: true
