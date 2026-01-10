@@ -96,6 +96,8 @@ class FastestDet:
         parser.add_argument('--classes', type=str, default=None, help='comma-separated class ids')
         parser.add_argument('--exp-name', type=str, default="exp", help='experiment name (runs/<exp-name>)')
         parser.add_argument('--aug-yaml', type=str, default="utils/aug_headpose.yaml", help='augmentation yaml')
+        parser.add_argument('--lr', type=float, default=None, help='override learning rate from yaml')
+        parser.add_argument('--epoch', type=int, default=None, help='override end epoch from yaml')
         parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
         parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
         parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
@@ -206,6 +208,10 @@ class FastestDet:
         cli_classes = parse_classes(opt.classes)
         if cli_classes is not None:
             self.cfg.classes = cli_classes
+        if opt.lr is not None:
+            self.cfg.learn_rate = float(opt.lr)
+        if opt.epoch is not None:
+            self.cfg.end_epoch = int(opt.epoch)
         self.val_interval = max(1, int(opt.val_interval))
         self.resize_mode = opt.resize_mode
         self.aug_yaml = opt.aug_yaml if opt.aug_yaml else None
