@@ -57,13 +57,17 @@ class ShuffleV2Block(nn.Module):
             x = old_x
             return torch.cat((self.branch_proj(x_proj), self.branch_main(x)), 1)
 
-    def channel_shuffle(self, x):
+    def channel_shuffle(self, x: torch.Tensor):
         batchsize, num_channels, height, width = x.data.size()
-        assert (num_channels % 4 == 0)
-        x = x.reshape(batchsize * num_channels // 2, 2, height * width)
-        x = x.permute(1, 0, 2)
-        x = x.reshape(2, -1, num_channels // 2, height, width)
-        return x[0], x[1]
+        # x = x.reshape(batchsize, num_channels // 2, 2, height * width)
+        # x = x.permute(0, 2, 1, 3)
+        # x = x.reshape(batchsize, 2, num_channels // 2, height, width)
+        # return x[:, 0], x[:, 1]
+        batchsize, num_channels, height, width = x.data.size()
+        x = x.reshape(batchsize, num_channels // 2, 2, height, width)
+        return x[:, :, 0], x[:, :, 1]
+
+
 
 DEFAULT_STAGE_REPEATS = [4, 8, 4]
 DEFAULT_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
@@ -103,7 +107,7 @@ class ShuffleNetV2(nn.Module):
                                                 use_residual=self.use_skip_residual))
                 input_channel = output_channel
             setattr(self, stage_names[idxstage], nn.Sequential(*stageSeq))
-        
+
         if load_param == False:
             self._initialize_weights()
         else:

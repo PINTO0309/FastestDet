@@ -193,6 +193,7 @@ class FastestDet:
             self.exp_dir = os.path.dirname(os.path.abspath(opt.resume))
         else:
             self.exp_dir = os.path.join("runs", opt.exp_name)
+        self.is_resume = opt.resume is not None
         os.makedirs(self.exp_dir, exist_ok=True)
         self.writer = SummaryWriter(log_dir=self.exp_dir)
         self.log_path = os.path.join(self.exp_dir, "train.log")
@@ -227,6 +228,7 @@ class FastestDet:
         self.use_amp = opt.use_amp and torch.cuda.is_available()
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
         self.use_skip_residual = opt.use_skip_residual
+        self.onnx_exported = False
 
         # Initialize model
         if opt.weight is not None:
@@ -532,6 +534,37 @@ class FastestDet:
             parts.append(f"best_ckpt={best_name}")
         self._log_line(" ".join(parts))
 
+    def _export_onnx(self, path):
+        self.model.eval()
+        dummy = torch.zeros(
+            1,
+            self.input_channels,
+            self.cfg.input_height,
+            self.cfg.input_width,
+            device=device,
+        )
+        if self.use_ema and self.ema is not None:
+            self.ema.apply_shadow()
+        torch.onnx.export(
+            self.model,
+            dummy,
+            path,
+            export_params=True,
+            opset_version=17,
+        )
+        import onnx
+        from onnxsim import simplify
+        onnx_model = onnx.load(path)
+        model_simp, check = simplify(onnx_model)
+        if not check:
+            raise RuntimeError("onnxsim simplification check failed.")
+        onnx.save(model_simp, path)
+        if self.use_ema and self.ema is not None:
+            self.ema.restore()
+        print(f"export onnx: {path}")
+        print("onnx sim success...")
+        self._log_line(f"export_onnx={path}")
+
     def _save_checkpoint(self, epoch, path):
         state = {
             "epoch": epoch,
@@ -776,6 +809,10 @@ class FastestDet:
         start_line = "Starting training for %g epochs..." % self.cfg.end_epoch
         print(start_line)
         self._log_line(start_line)
+        if not self.onnx_exported and not self.is_resume:
+            export_path = os.path.join(self.exp_dir, "model.onnx")
+            self._export_onnx(export_path)
+            self.onnx_exported = True
         for epoch in range(self.start_epoch, self.cfg.end_epoch + 1):
             self.model.train()
             epoch_iou = 0.0
