@@ -1,7 +1,7 @@
 DATASET:
   TRAIN: "dataset/wholebody34/train.txt"
   VAL: "dataset/wholebody34/val.txt"
-  NAMES: "configs/uhd09.names"
+  NAMES: "configs/uhd02.names"
 MODEL:
   NC: 9
   INPUT_WIDTH: 64
