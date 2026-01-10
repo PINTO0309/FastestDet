@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 
 class ShuffleV2Block(nn.Module):
-    def __init__(self, inp, oup, mid_channels, *, ksize, stride):
+    def __init__(self, inp, oup, mid_channels, *, ksize, stride, use_residual=False):
         super(ShuffleV2Block, self).__init__()
         self.stride = stride
         assert stride in [1, 2]
+        self.use_residual = use_residual
 
         self.mid_channels = mid_channels
         self.ksize = ksize
@@ -47,7 +48,10 @@ class ShuffleV2Block(nn.Module):
     def forward(self, old_x):
         if self.stride==1:
             x_proj, x = self.channel_shuffle(old_x)
-            return torch.cat((x_proj, self.branch_main(x)), 1)
+            out = torch.cat((x_proj, self.branch_main(x)), 1)
+            if self.use_residual and out.shape == old_x.shape:
+                out = out + old_x
+            return out
         elif self.stride==2:
             x_proj = old_x
             x = old_x
@@ -65,12 +69,13 @@ DEFAULT_STAGE_REPEATS = [4, 8, 4]
 DEFAULT_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
 
 class ShuffleNetV2(nn.Module):
-    def __init__(self, stage_repeats, stage_out_channels, load_param, in_channels=3):
+    def __init__(self, stage_repeats, stage_out_channels, load_param, in_channels=3, use_skip_residual=False):
         super(ShuffleNetV2, self).__init__()
 
         self.stage_repeats = stage_repeats
         self.stage_out_channels = stage_out_channels
         self.in_channels = in_channels
+        self.use_skip_residual = use_skip_residual
 
         # building first layer
         input_channel = self.stage_out_channels[1]
@@ -89,11 +94,13 @@ class ShuffleNetV2(nn.Module):
             stageSeq = []
             for i in range(numrepeat):
                 if i == 0:
-                    stageSeq.append(ShuffleV2Block(input_channel, output_channel, 
-                                                mid_channels=output_channel // 2, ksize=3, stride=2))
+                    stageSeq.append(ShuffleV2Block(input_channel, output_channel,
+                                                mid_channels=output_channel // 2, ksize=3, stride=2,
+                                                use_residual=self.use_skip_residual))
                 else:
-                    stageSeq.append(ShuffleV2Block(input_channel // 2, output_channel, 
-                                                mid_channels=output_channel // 2, ksize=3, stride=1))
+                    stageSeq.append(ShuffleV2Block(input_channel // 2, output_channel,
+                                                mid_channels=output_channel // 2, ksize=3, stride=1,
+                                                use_residual=self.use_skip_residual))
                 input_channel = output_channel
             setattr(self, stage_names[idxstage], nn.Sequential(*stageSeq))
         

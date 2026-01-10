@@ -105,6 +105,7 @@ class FastestDet:
         parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
+        parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
         resize_group = parser.add_mutually_exclusive_group()
         resize_group.add_argument(
             "--resize-mode",
@@ -225,6 +226,7 @@ class FastestDet:
         self.ema = None
         self.use_amp = opt.use_amp and torch.cuda.is_available()
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        self.use_skip_residual = opt.use_skip_residual
 
         # Initialize model
         if opt.weight is not None:
@@ -235,6 +237,7 @@ class FastestDet:
                 self.input_channels,
                 stage_repeats=self.stage_repeats,
                 stage_out_channels=self.stage_out_channels,
+                use_skip_residual=self.use_skip_residual,
             ).to(device)
             self.model.load_state_dict(torch.load(opt.weight, map_location=device))
         else:
@@ -244,6 +247,7 @@ class FastestDet:
                 self.input_channels,
                 stage_repeats=self.stage_repeats,
                 stage_out_channels=self.stage_out_channels,
+                use_skip_residual=self.use_skip_residual,
             ).to(device)
 
         if self.use_ema:
@@ -268,6 +272,9 @@ class FastestDet:
                 and opt.teacher_stage_out_channels is None
                 and opt.teacher_stage_repeats is None
             )
+            teacher_use_skip = self.use_skip_residual
+            if isinstance(teacher_ckpt, dict) and "use_skip_residual" in teacher_ckpt:
+                teacher_use_skip = bool(teacher_ckpt["use_skip_residual"])
             if use_ckpt_backbone:
                 teacher_out_channels = teacher_ckpt["stage_out_channels"]
                 teacher_repeats = teacher_ckpt["stage_repeats"]
@@ -279,12 +286,14 @@ class FastestDet:
 
             self.teacher_stage_out_channels = teacher_out_channels
             self.teacher_stage_repeats = teacher_repeats
+            self.teacher_use_skip_residual = teacher_use_skip
             self.teacher_model = Detector(
                 self.cfg.category_num,
                 True,
                 self.input_channels,
                 stage_repeats=teacher_repeats,
                 stage_out_channels=teacher_out_channels,
+                use_skip_residual=teacher_use_skip,
             ).to(device)
             self.teacher_model.load_state_dict(teacher_state)
             self.teacher_model.eval()
@@ -540,6 +549,7 @@ class FastestDet:
             "stage_out_channels": self.stage_out_channels,
             "stage_repeats": self.stage_repeats,
             "input_channels": self.input_channels,
+            "use_skip_residual": self.use_skip_residual,
             "use_ema": self.use_ema,
             "use_amp": self.use_amp,
             "rng_state": torch.get_rng_state(),
@@ -565,6 +575,7 @@ class FastestDet:
             state["teacher_model"] = self.teacher_model.state_dict()
             state["teacher_stage_out_channels"] = self.teacher_stage_out_channels
             state["teacher_stage_repeats"] = self.teacher_stage_repeats
+            state["teacher_use_skip_residual"] = getattr(self, "teacher_use_skip_residual", None)
         if self.use_ema and self.ema is not None:
             state["ema_shadow"] = self.ema.shadow
             state["ema_decay"] = self.ema.decay
@@ -591,12 +602,15 @@ class FastestDet:
         ckpt_stage_out = checkpoint.get("stage_out_channels")
         ckpt_stage_repeats = checkpoint.get("stage_repeats")
         ckpt_input_channels = checkpoint.get("input_channels")
+        ckpt_use_skip = checkpoint.get("use_skip_residual")
         if ckpt_stage_out is not None and ckpt_stage_out != self.stage_out_channels:
             raise ValueError("stage_out_channels mismatch with checkpoint.")
         if ckpt_stage_repeats is not None and ckpt_stage_repeats != self.stage_repeats:
             raise ValueError("stage_repeats mismatch with checkpoint.")
         if ckpt_input_channels is not None and ckpt_input_channels != self.input_channels:
             raise ValueError("input_channels mismatch with checkpoint.")
+        if ckpt_use_skip is not None and ckpt_use_skip != self.use_skip_residual:
+            raise ValueError("use_skip_residual mismatch with checkpoint.")
         self.model.load_state_dict(checkpoint["model"])
         if "optimizer" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
@@ -618,16 +632,19 @@ class FastestDet:
         if "teacher_model" in checkpoint and self.teacher_model is None:
             teacher_out_channels = checkpoint.get("teacher_stage_out_channels")
             teacher_repeats = checkpoint.get("teacher_stage_repeats")
+            teacher_use_skip = checkpoint.get("teacher_use_skip_residual")
             if teacher_out_channels is None or teacher_repeats is None:
                 raise ValueError("Checkpoint is missing teacher backbone settings.")
             self.teacher_stage_out_channels = teacher_out_channels
             self.teacher_stage_repeats = teacher_repeats
+            self.teacher_use_skip_residual = bool(teacher_use_skip) if teacher_use_skip is not None else False
             self.teacher_model = Detector(
                 self.cfg.category_num,
                 True,
                 self.input_channels,
                 stage_repeats=teacher_repeats,
                 stage_out_channels=teacher_out_channels,
+                use_skip_residual=self.teacher_use_skip_residual,
             ).to(device)
             self.teacher_model.eval()
             for param in self.teacher_model.parameters():
