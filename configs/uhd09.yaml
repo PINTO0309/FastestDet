@@ -4,21 +4,28 @@ DATASET:
   NAMES: "configs/uhd09.names"
 MODEL:
   NC: 9
-  INPUT_WIDTH: 64
-  INPUT_HEIGHT: 64
+  INPUT_WIDTH: 128
+  INPUT_HEIGHT: 128
+# TRAIN:
+#   LR: 0.01
+#   THRESH: 0.15
+#   WARMUP: true
+#   BATCH_SIZE: 64
+#   END_EPOCH: 300
+#   OPTIMIZER: adamw
+#   WEIGHT_DECAY: 0.0001
+#   SCHEDULER: cosine
+#   MIN_LR: 0.0
+#   T_MAX: 300
+#   MILESTIONES:
 TRAIN:
-  LR: 0.01
-  THRESH: 0.15
+  LR: 0.001
+  THRESH: 0.25
   WARMUP: true
   BATCH_SIZE: 64
   END_EPOCH: 300
-  OPTIMIZER: adamw
-  WEIGHT_DECAY: 0.0001
-  SCHEDULER: cosine
-  MIN_LR: 0.0
-  T_MAX: 300
-  # MILESTIONES:
-  #   - 100
-  #   - 200
-  #   - 250
+  MILESTIONES:
+    - 100
+    - 200
+    - 250
   CLASSES: 7,8,9,10,11,12,13,14,15

@@ -8,6 +8,7 @@ import numpy as np
 import torch.nn.functional as F
 import cv2
 from datetime import datetime
+import sys
 import yaml
 from tqdm import tqdm
 from torch import optim
@@ -48,6 +49,22 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
+class _TeeStream:
+    def __init__(self, *streams):
+        self.streams = streams
+        self.primary = streams[0] if streams else None
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+    def isatty(self):
+        return getattr(self.primary, "isatty", lambda: False)()
 
 def _validate_half_step(value, name):
     if value is None:
@@ -171,6 +188,16 @@ class FastestDet:
         with open(opt.yaml, 'r', encoding='utf-8') as f:
             self.yaml_params = yaml.safe_load(f) or {}
 
+        if opt.resume is not None:
+            self.exp_dir = os.path.dirname(os.path.abspath(opt.resume))
+        else:
+            self.exp_dir = os.path.join("runs", opt.exp_name)
+        os.makedirs(self.exp_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=self.exp_dir)
+        self.log_path = os.path.join(self.exp_dir, "train.log")
+        self.log_file = open(self.log_path, "a", encoding="utf-8")
+        self._enable_console_log()
+
         # Parse yaml config
         self.cfg = LoadYaml(opt.yaml)
         cli_classes = parse_classes(opt.classes)
@@ -184,14 +211,6 @@ class FastestDet:
         _validate_half_step(opt.stage_repeats, "stage_repeats")
         self.stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
         self.stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
-        if opt.resume is not None:
-            self.exp_dir = os.path.dirname(os.path.abspath(opt.resume))
-        else:
-            self.exp_dir = os.path.join("runs", opt.exp_name)
-        os.makedirs(self.exp_dir, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=self.exp_dir)
-        self.log_path = os.path.join(self.exp_dir, "train.log")
-        self.log_file = open(self.log_path, "a", encoding="utf-8")
         self.best_map05 = float("-inf")
         self.latest_map05 = None
         self.best_epochs = []
@@ -365,6 +384,8 @@ class FastestDet:
         if opt.resume is not None:
             self._load_checkpoint(opt.resume)
 
+        self._disable_console_log()
+
     def _prune_checkpoints(self, max_keep=10):
         checkpoints = []
         for name in os.listdir(self.exp_dir):
@@ -440,6 +461,22 @@ class FastestDet:
                 os.rmdir(dir_path)
             except OSError:
                 pass
+
+    def _enable_console_log(self):
+        if getattr(self, "_console_tee_enabled", False):
+            return
+        self._stdout = sys.stdout
+        self._stderr = sys.stderr
+        sys.stdout = _TeeStream(self._stdout, self.log_file)
+        sys.stderr = _TeeStream(self._stderr, self.log_file)
+        self._console_tee_enabled = True
+
+    def _disable_console_log(self):
+        if not getattr(self, "_console_tee_enabled", False):
+            return
+        sys.stdout = self._stdout
+        sys.stderr = self._stderr
+        self._console_tee_enabled = False
 
     def _log_line(self, line):
         self.log_file.write(line + "\n")
@@ -719,7 +756,9 @@ class FastestDet:
         # Training loop
         batch_num = self.batch_num
         input_is_normalized = getattr(self.train_dataloader.dataset, "input_is_normalized", False)
-        print('Starting training for %g epochs...' % self.cfg.end_epoch)
+        start_line = "Starting training for %g epochs..." % self.cfg.end_epoch
+        print(start_line)
+        self._log_line(start_line)
         for epoch in range(self.start_epoch, self.cfg.end_epoch + 1):
             self.model.train()
             epoch_iou = 0.0
