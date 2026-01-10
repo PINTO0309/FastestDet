@@ -83,6 +83,23 @@ def _scale_stage_list(values, mult, keep_first=False):
         scaled.append(max(1, int(round(v * mult))))
     return scaled
 
+def _parse_img_size(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("img-size must be a string in HxW format.")
+    parts = value.lower().split("x")
+    if len(parts) != 2:
+        raise ValueError("img-size must be in HxW format.")
+    try:
+        height = int(parts[0])
+        width = int(parts[1])
+    except ValueError as exc:
+        raise ValueError("img-size must be in HxW format.") from exc
+    if height <= 0 or width <= 0:
+        raise ValueError("img-size values must be positive.")
+    return height, width
+
 # Select backend device: CUDA or CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -98,6 +115,7 @@ class FastestDet:
         parser.add_argument('--aug-yaml', type=str, default="utils/aug_headpose.yaml", help='augmentation yaml')
         parser.add_argument('--lr', type=float, default=None, help='override learning rate from yaml')
         parser.add_argument('--epoch', type=int, default=None, help='override end epoch from yaml')
+        parser.add_argument('--img-size', type=str, default=None, help='override input size as HxW (height x width)')
         parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
         parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
         parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
@@ -205,6 +223,9 @@ class FastestDet:
 
         # Parse yaml config
         self.cfg = LoadYaml(opt.yaml)
+        img_size = _parse_img_size(opt.img_size)
+        if img_size is not None:
+            self.cfg.input_height, self.cfg.input_width = img_size
         cli_classes = parse_classes(opt.classes)
         if cli_classes is not None:
             self.cfg.classes = cli_classes
