@@ -1,3 +1,5 @@
+# This fork `custom` branch aims to improve the official implementation.
+
 ***2022.7.14:Optimize loss, adopt IOU aware based on smooth L1, and the AP is significantly increased by 0.7***
 # :zap:FastestDet:zap:
 [![DOI](https://zenodo.org/badge/508635170.svg)](https://zenodo.org/badge/latestdoi/508635170)
