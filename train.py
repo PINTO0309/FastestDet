@@ -620,6 +620,19 @@ class FastestDet:
             state["amp_scaler"] = self.scaler.state_dict()
         torch.save(state, path)
 
+    def _coerce_rng_state(self, state, name):
+        if state is None:
+            return None
+        if isinstance(state, torch.Tensor):
+            return state.to(dtype=torch.uint8, device="cpu")
+        if isinstance(state, np.ndarray):
+            return torch.from_numpy(state).to(dtype=torch.uint8, device="cpu")
+        if isinstance(state, (bytes, bytearray)):
+            return torch.ByteTensor(list(state))
+        if isinstance(state, (list, tuple)):
+            return torch.tensor(state, dtype=torch.uint8)
+        raise TypeError(f"{name} must be a torch.ByteTensor or convertible type, got {type(state)}")
+
     def _load_checkpoint(self, path):
         checkpoint = torch.load(path, map_location=device)
         required_keys = {
@@ -696,15 +709,24 @@ class FastestDet:
         self.start_epoch = int(checkpoint.get("epoch", 0)) + 1
         self.batch_num = int(checkpoint.get("batch_num", 0))
         if "rng_state" in checkpoint:
-            torch.set_rng_state(checkpoint["rng_state"])
+            rng_state = self._coerce_rng_state(checkpoint["rng_state"], "rng_state")
+            if rng_state is not None:
+                torch.set_rng_state(rng_state)
         if torch.cuda.is_available() and checkpoint.get("cuda_rng_state") is not None:
-            torch.cuda.set_rng_state_all(checkpoint["cuda_rng_state"])
+            cuda_states = checkpoint["cuda_rng_state"]
+            if isinstance(cuda_states, (list, tuple)):
+                cuda_states = [self._coerce_rng_state(state, "cuda_rng_state") for state in cuda_states]
+            else:
+                cuda_states = [self._coerce_rng_state(cuda_states, "cuda_rng_state")]
+            torch.cuda.set_rng_state_all(cuda_states)
         if "numpy_rng_state" in checkpoint:
             np.random.set_state(checkpoint["numpy_rng_state"])
         if "python_rng_state" in checkpoint:
             random.setstate(checkpoint["python_rng_state"])
         if hasattr(self, "data_gen") and checkpoint.get("data_gen_state") is not None:
-            self.data_gen.set_state(checkpoint["data_gen_state"])
+            data_gen_state = self._coerce_rng_state(checkpoint["data_gen_state"], "data_gen_state")
+            if data_gen_state is not None:
+                self.data_gen.set_state(data_gen_state)
 
     def _load_label_names(self):
         names = []
