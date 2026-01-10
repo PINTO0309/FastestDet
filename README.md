@@ -158,6 +158,7 @@ uv run python train.py \
 --yaml configs/uhd09.yaml \
 --lr 0.00100 \
 --epoch 300 \
+--img-size 64x64 \
 --opencv_inter_nearest \
 --stage-out-channels 1.00 \
 --stage-repeats 1.00 \
@@ -169,6 +170,7 @@ uv run python train.py \
 --yaml configs/uhd09.yaml \
 --lr 0.00100 \
 --epoch 300 \
+--img-size 64x64 \
 --opencv_inter_nearest \
 --stage-out-channels 1.25 \
 --stage-repeats 1.00 \
@@ -180,6 +182,7 @@ uv run python train.py \
 --yaml configs/uhd09.yaml \
 --lr 0.00100 \
 --epoch 300 \
+--img-size 64x64 \
 --opencv_inter_nearest \
 --stage-out-channels 1.50 \
 --stage-repeats 1.00 \
@@ -191,6 +194,7 @@ uv run python train.py \
 --yaml configs/uhd09.yaml \
 --lr 0.00100 \
 --epoch 300 \
+--img-size 64x64 \
 --opencv_inter_nearest \
 --stage-out-channels 1.75 \
 --stage-repeats 1.00 \
@@ -202,6 +206,7 @@ uv run python train.py \
 --yaml configs/uhd09.yaml \
 --lr 0.00100 \
 --epoch 300 \
+--img-size 64x64 \
 --opencv_inter_nearest \
 --stage-out-channels 2.00 \
 --stage-repeats 1.00 \
