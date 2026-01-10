@@ -104,6 +104,7 @@ class FastestDet:
         parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.125 step)')
         parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
+        parser.add_argument('--ema-decay', type=float, default=0.9998, help='EMA decay rate')
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
         resize_group = parser.add_mutually_exclusive_group()
@@ -224,6 +225,7 @@ class FastestDet:
         print(self.cfg)
 
         self.use_ema = opt.use_ema
+        self.ema_decay = float(opt.ema_decay)
         self.ema = None
         self.use_amp = opt.use_amp and torch.cuda.is_available()
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
@@ -253,7 +255,7 @@ class FastestDet:
             ).to(device)
 
         if self.use_ema:
-            self.ema = EMA(self.model, decay=0.9998)
+            self.ema = EMA(self.model, decay=self.ema_decay)
             self.ema.register()
 
         self.teacher_model = None
@@ -551,6 +553,8 @@ class FastestDet:
             path,
             export_params=True,
             opset_version=17,
+            input_names=["input_rgb"],
+            output_names=["output"],
         )
         import onnx
         from onnxsim import simplify
@@ -657,6 +661,8 @@ class FastestDet:
             self.ema.register()
         if self.use_ema and self.ema is not None and "ema_shadow" in checkpoint:
             self.ema.shadow = checkpoint["ema_shadow"]
+        if self.use_ema and self.ema is not None and "ema_decay" in checkpoint:
+            self.ema.decay = checkpoint["ema_decay"]
         if ckpt_use_amp and not self.use_amp and torch.cuda.is_available():
             self.use_amp = True
             self.scaler = torch.cuda.amp.GradScaler(enabled=True)
