@@ -66,11 +66,11 @@ class _TeeStream:
     def isatty(self):
         return getattr(self.primary, "isatty", lambda: False)()
 
-def _validate_half_step(value, name):
+def _validate_quarter_step(value, name):
     if value is None:
         return
-    if abs(value * 2 - round(value * 2)) > 1e-6:
-        raise ValueError(f"{name} must be in 0.5 increments.")
+    if abs(value * 4 - round(value * 4)) > 1e-6:
+        raise ValueError(f"{name} must be in 0.25 increments.")
 
 def _scale_stage_list(values, mult, keep_first=False):
     if mult is None:
@@ -97,11 +97,11 @@ class FastestDet:
         parser.add_argument('--exp-name', type=str, default="exp", help='experiment name (runs/<exp-name>)')
         parser.add_argument('--aug-yaml', type=str, default="utils/aug_headpose.yaml", help='augmentation yaml')
         parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
-        parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.5 step)')
-        parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.5 step)')
+        parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.25 step)')
+        parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.25 step)')
         parser.add_argument('--teacher-weight', type=str, default=None, help='teacher weight for distillation')
-        parser.add_argument('--teacher-stage-out-channels', type=float, default=None, help='teacher stage_out_channels multiplier (0.5 step)')
-        parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.5 step)')
+        parser.add_argument('--teacher-stage-out-channels', type=float, default=None, help='teacher stage_out_channels multiplier (0.25 step)')
+        parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.25 step)')
         parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
@@ -207,8 +207,8 @@ class FastestDet:
         self.resize_mode = opt.resize_mode
         self.aug_yaml = opt.aug_yaml if opt.aug_yaml else None
         self.input_channels = resize_output_channels(self.resize_mode)
-        _validate_half_step(opt.stage_out_channels, "stage_out_channels")
-        _validate_half_step(opt.stage_repeats, "stage_repeats")
+        _validate_quarter_step(opt.stage_out_channels, "stage_out_channels")
+        _validate_quarter_step(opt.stage_repeats, "stage_repeats")
         self.stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
         self.stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
         self.best_map05 = float("-inf")
@@ -256,8 +256,8 @@ class FastestDet:
         if opt.teacher_weight:
             teacher_out_mult = opt.teacher_stage_out_channels if opt.teacher_stage_out_channels is not None else opt.stage_out_channels
             teacher_repeat_mult = opt.teacher_stage_repeats if opt.teacher_stage_repeats is not None else opt.stage_repeats
-            _validate_half_step(teacher_out_mult, "teacher_stage_out_channels")
-            _validate_half_step(teacher_repeat_mult, "teacher_stage_repeats")
+            _validate_quarter_step(teacher_out_mult, "teacher_stage_out_channels")
+            _validate_quarter_step(teacher_repeat_mult, "teacher_stage_repeats")
 
             teacher_ckpt = torch.load(opt.teacher_weight, map_location=device)
             use_ckpt_backbone = (
