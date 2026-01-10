@@ -157,45 +157,45 @@ uv run python train.py \
 uv run python train.py \
 --yaml configs/uhd09.yaml \
 --opencv_inter_nearest \
---stage-out-channels 1.0 \
---stage-repeats 1.0 \
---exp-name exp_x1_0 \
+--stage-out-channels 1.00 \
+--stage-repeats 1.00 \
+--exp-name exp_x1_00_x1_00 \
 --use-ema \
 --use-amp
 
 uv run python train.py \
 --yaml configs/uhd09.yaml \
 --opencv_inter_nearest \
---stage-out-channels 1.5 \
---stage-repeats 1.5 \
---exp-name exp_x1_5 \
+--stage-out-channels 1.25 \
+--stage-repeats 1.00 \
+--exp-name exp_x1_25_x1_00 \
 --use-ema \
 --use-amp
 
 uv run python train.py \
 --yaml configs/uhd09.yaml \
 --opencv_inter_nearest \
---stage-out-channels 2.0 \
---stage-repeats 2.0 \
---exp-name exp_x2_0 \
+--stage-out-channels 1.50 \
+--stage-repeats 1.00 \
+--exp-name exp_x1_50_x1_00 \
 --use-ema \
 --use-amp
 
 uv run python train.py \
 --yaml configs/uhd09.yaml \
 --opencv_inter_nearest \
---stage-out-channels 2.5 \
---stage-repeats 2.5 \
---exp-name exp_x2_5 \
+--stage-out-channels 1.75 \
+--stage-repeats 1.00 \
+--exp-name exp_x1_75_x1_00 \
 --use-ema \
 --use-amp
 
 uv run python train.py \
 --yaml configs/uhd09.yaml \
 --opencv_inter_nearest \
---stage-out-channels 3.0 \
---stage-repeats 3.0 \
---exp-name exp_x3_0 \
+--stage-out-channels 2.00 \
+--stage-repeats 1.00 \
+--exp-name exp_x2_00_x1_00 \
 --use-ema \
 --use-amp
 ```
