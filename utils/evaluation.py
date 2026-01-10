@@ -90,7 +90,7 @@ class CocoDetectionEvaluator():
             precision = precisions[iou_index, :, k, area_index, maxdet_index]
             precision = precision[precision > -1]
             ap = float(np.mean(precision)) if precision.size else float("nan")
-            ap_text = "nan" if np.isnan(ap) else f"{ap:.4f}"
+            ap_text = "nan" if np.isnan(ap) else f"{ap:.5f}"
             results.append((name, ap))
             print(f"| {name.ljust(name_width)} | {ap_text.rjust(ap_width)} |")
         print(top)
