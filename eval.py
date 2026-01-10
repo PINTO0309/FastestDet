@@ -45,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
     parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
     parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
+    parser.add_argument('--use-ese', action='store_true', default=False, help='enable eSE on shared features')
 
     opt = parser.parse_args()
     assert os.path.exists(opt.yaml), "Please provide a valid config file path."
@@ -66,6 +67,7 @@ if __name__ == '__main__':
         stage_repeats=stage_repeats,
         stage_out_channels=stage_out_channels,
         use_skip_residual=opt.use_skip_residual,
+        use_ese=opt.use_ese,
     ).to(device)
     model.load_state_dict(torch.load(opt.weight))
     model.eval()

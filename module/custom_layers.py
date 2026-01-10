@@ -96,3 +96,15 @@ class DetectHead(nn.Module):
         cls = self.softmax(self.cls_layers(x))
 
         return torch.cat((obj, reg, cls), dim =1)
+
+class ESE(nn.Module):
+    def __init__(self, channels):
+        super(ESE, self).__init__()
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv2d(channels, channels, 1, 1, 0, bias=True)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        w = self.pool(x)
+        w = self.sigmoid(self.conv(w))
+        return x * w
