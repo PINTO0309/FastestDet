@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 import io
-from contextlib import redirect_stdout, redirect_stderr
+import sys
+from contextlib import redirect_stdout, redirect_stderr, contextmanager
 from tqdm import tqdm
 from utils.tool import *
 
@@ -16,6 +17,20 @@ class CocoDetectionEvaluator():
         with open(names, 'r') as f:
             for line in f.readlines():
                 self.classes.append(line.strip())
+
+    @contextmanager
+    def _console_only(self):
+        stdout = sys.stdout
+        stderr = sys.stderr
+        real_stdout = getattr(stdout, "primary", stdout)
+        real_stderr = getattr(stderr, "primary", stderr)
+        sys.stdout = real_stdout
+        sys.stderr = real_stderr
+        try:
+            yield
+        finally:
+            sys.stdout = stdout
+            sys.stderr = stderr
     
     def coco_evaluate(self, gts, preds):
         # Create Ground Truth
@@ -58,6 +73,7 @@ class CocoDetectionEvaluator():
             coco_eval = COCOeval(coco_gt, coco_pred, "bbox")
             coco_eval.evaluate()
             coco_eval.accumulate()
+        with self._console_only():
             coco_eval.summarize()
         mAP05 = coco_eval.stats[1]
         self._print_per_class_ap(coco_eval)
