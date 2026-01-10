@@ -108,3 +108,19 @@ class ESE(nn.Module):
         w = self.pool(x)
         w = self.sigmoid(self.conv(w))
         return x * w
+
+class SE(nn.Module):
+    def __init__(self, channels, reduction=4):
+        super(SE, self).__init__()
+        hidden = max(1, channels // reduction)
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.fc1 = nn.Conv2d(channels, hidden, 1, 1, 0, bias=True)
+        self.relu = nn.ReLU(inplace=True)
+        self.fc2 = nn.Conv2d(hidden, channels, 1, 1, 0, bias=True)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        w = self.pool(x)
+        w = self.relu(self.fc1(w))
+        w = self.sigmoid(self.fc2(w))
+        return x * w

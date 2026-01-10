@@ -127,7 +127,9 @@ class FastestDet:
         parser.add_argument('--ema-decay', type=float, default=0.9998, help='EMA decay rate')
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
-        parser.add_argument('--use-ese', action='store_true', default=False, help='enable eSE on shared features')
+        se_group = parser.add_mutually_exclusive_group()
+        se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
+        se_group.add_argument('--use-ese', action='store_true', default=False, help='enable eSE on shared features')
         resize_group = parser.add_mutually_exclusive_group()
         resize_group.add_argument(
             "--resize-mode",
@@ -258,6 +260,7 @@ class FastestDet:
         self.use_amp = opt.use_amp and torch.cuda.is_available()
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
         self.use_skip_residual = opt.use_skip_residual
+        self.use_se = opt.use_se
         self.use_ese = opt.use_ese
         self.onnx_exported = False
 
@@ -272,6 +275,7 @@ class FastestDet:
                 stage_out_channels=self.stage_out_channels,
                 use_skip_residual=self.use_skip_residual,
                 use_ese=self.use_ese,
+                use_se=self.use_se,
             ).to(device)
             self.model.load_state_dict(torch.load(opt.weight, map_location=device))
         else:
@@ -283,6 +287,7 @@ class FastestDet:
                 stage_out_channels=self.stage_out_channels,
                 use_skip_residual=self.use_skip_residual,
                 use_ese=self.use_ese,
+                use_se=self.use_se,
             ).to(device)
 
         if self.use_ema:
@@ -308,11 +313,16 @@ class FastestDet:
                 and opt.teacher_stage_repeats is None
             )
             teacher_use_skip = self.use_skip_residual
+            teacher_use_se = self.use_se
             teacher_use_ese = self.use_ese
             if isinstance(teacher_ckpt, dict) and "use_skip_residual" in teacher_ckpt:
                 teacher_use_skip = bool(teacher_ckpt["use_skip_residual"])
+            if isinstance(teacher_ckpt, dict) and "use_se" in teacher_ckpt:
+                teacher_use_se = bool(teacher_ckpt["use_se"])
             if isinstance(teacher_ckpt, dict) and "use_ese" in teacher_ckpt:
                 teacher_use_ese = bool(teacher_ckpt["use_ese"])
+            if teacher_use_se and teacher_use_ese:
+                raise ValueError("Teacher model cannot enable both SE and eSE.")
             if use_ckpt_backbone:
                 teacher_out_channels = teacher_ckpt["stage_out_channels"]
                 teacher_repeats = teacher_ckpt["stage_repeats"]
@@ -325,6 +335,7 @@ class FastestDet:
             self.teacher_stage_out_channels = teacher_out_channels
             self.teacher_stage_repeats = teacher_repeats
             self.teacher_use_skip_residual = teacher_use_skip
+            self.teacher_use_se = teacher_use_se
             self.teacher_use_ese = teacher_use_ese
             self.teacher_model = Detector(
                 self.cfg.category_num,
@@ -334,6 +345,7 @@ class FastestDet:
                 stage_out_channels=teacher_out_channels,
                 use_skip_residual=teacher_use_skip,
                 use_ese=teacher_use_ese,
+                use_se=teacher_use_se,
             ).to(device)
             self.teacher_model.load_state_dict(teacher_state)
             self.teacher_model.eval()
@@ -623,6 +635,7 @@ class FastestDet:
             "stage_repeats": self.stage_repeats,
             "input_channels": self.input_channels,
             "use_skip_residual": self.use_skip_residual,
+            "use_se": self.use_se,
             "use_ese": self.use_ese,
             "use_ema": self.use_ema,
             "use_amp": self.use_amp,
@@ -650,6 +663,7 @@ class FastestDet:
             state["teacher_stage_out_channels"] = self.teacher_stage_out_channels
             state["teacher_stage_repeats"] = self.teacher_stage_repeats
             state["teacher_use_skip_residual"] = getattr(self, "teacher_use_skip_residual", None)
+            state["teacher_use_se"] = getattr(self, "teacher_use_se", None)
             state["teacher_use_ese"] = getattr(self, "teacher_use_ese", None)
         if self.use_ema and self.ema is not None:
             state["ema_shadow"] = self.ema.shadow
@@ -691,6 +705,7 @@ class FastestDet:
         ckpt_stage_repeats = checkpoint.get("stage_repeats")
         ckpt_input_channels = checkpoint.get("input_channels")
         ckpt_use_skip = checkpoint.get("use_skip_residual")
+        ckpt_use_se = checkpoint.get("use_se")
         ckpt_use_ese = checkpoint.get("use_ese")
         if ckpt_stage_out is not None and ckpt_stage_out != self.stage_out_channels:
             raise ValueError("stage_out_channels mismatch with checkpoint.")
@@ -700,6 +715,8 @@ class FastestDet:
             raise ValueError("input_channels mismatch with checkpoint.")
         if ckpt_use_skip is not None and ckpt_use_skip != self.use_skip_residual:
             raise ValueError("use_skip_residual mismatch with checkpoint.")
+        if ckpt_use_se is not None and ckpt_use_se != self.use_se:
+            raise ValueError("use_se mismatch with checkpoint.")
         if ckpt_use_ese is not None and ckpt_use_ese != self.use_ese:
             raise ValueError("use_ese mismatch with checkpoint.")
         self.model.load_state_dict(checkpoint["model"])
@@ -726,13 +743,17 @@ class FastestDet:
             teacher_out_channels = checkpoint.get("teacher_stage_out_channels")
             teacher_repeats = checkpoint.get("teacher_stage_repeats")
             teacher_use_skip = checkpoint.get("teacher_use_skip_residual")
+            teacher_use_se = checkpoint.get("teacher_use_se")
             teacher_use_ese = checkpoint.get("teacher_use_ese")
             if teacher_out_channels is None or teacher_repeats is None:
                 raise ValueError("Checkpoint is missing teacher backbone settings.")
             self.teacher_stage_out_channels = teacher_out_channels
             self.teacher_stage_repeats = teacher_repeats
             self.teacher_use_skip_residual = bool(teacher_use_skip) if teacher_use_skip is not None else False
+            self.teacher_use_se = bool(teacher_use_se) if teacher_use_se is not None else False
             self.teacher_use_ese = bool(teacher_use_ese) if teacher_use_ese is not None else False
+            if self.teacher_use_se and self.teacher_use_ese:
+                raise ValueError("Checkpoint enables both SE and eSE for teacher.")
             self.teacher_model = Detector(
                 self.cfg.category_num,
                 True,
@@ -740,6 +761,7 @@ class FastestDet:
                 stage_repeats=teacher_repeats,
                 stage_out_channels=teacher_out_channels,
                 use_skip_residual=self.teacher_use_skip_residual,
+                use_se=self.teacher_use_se,
                 use_ese=self.teacher_use_ese,
             ).to(device)
             self.teacher_model.eval()
