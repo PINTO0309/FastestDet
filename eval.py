@@ -20,11 +20,11 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # Select backend device: CUDA or CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def _validate_quarter_step(value, name):
+def _validate_eighth_step(value, name):
     if value is None:
         return
-    if abs(value * 4 - round(value * 4)) > 1e-6:
-        raise ValueError(f"{name} must be in 0.25 increments.")
+    if abs(value * 8 - round(value * 8)) > 1e-6:
+        raise ValueError(f"{name} must be in 0.125 increments.")
 
 def _scale_stage_list(values, mult, keep_first=False):
     if mult is None:
@@ -42,8 +42,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--yaml', type=str, default="", help='.yaml config')
     parser.add_argument('--weight', type=str, default=None, help='.weight config')
-    parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.25 step)')
-    parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.25 step)')
+    parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
+    parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
 
     opt = parser.parse_args()
     assert os.path.exists(opt.yaml), "Please provide a valid config file path."
@@ -55,8 +55,8 @@ if __name__ == '__main__':
 
     # Load model weights
     print("load weight from:%s"%opt.weight)
-    _validate_quarter_step(opt.stage_out_channels, "stage_out_channels")
-    _validate_quarter_step(opt.stage_repeats, "stage_repeats")
+    _validate_eighth_step(opt.stage_out_channels, "stage_out_channels")
+    _validate_eighth_step(opt.stage_repeats, "stage_repeats")
     stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
     stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
     model = Detector(
