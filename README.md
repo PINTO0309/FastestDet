@@ -214,7 +214,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -227,7 +227,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x1_25_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -240,7 +240,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x1_50_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -253,7 +253,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x1_75_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -279,7 +279,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x2_25_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -292,7 +292,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x2_50_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -305,7 +305,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x2_75_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
@@ -318,7 +318,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x3_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
