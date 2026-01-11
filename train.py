@@ -1,5 +1,6 @@
 import os
 import math
+import shlex
 import torch
 import argparse
 import warnings
@@ -552,6 +553,9 @@ class FastestDet:
     def _log_start(self):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._log_line(f"=== run start {ts} ===")
+        cli_command = " ".join(shlex.quote(arg) for arg in sys.argv)
+        if cli_command:
+            self._log_line(f"cli.command={cli_command}")
         for key in sorted(self.cli_params.keys()):
             if key == "yaml":
                 self._log_line(f"cli.{key}={self.cli_params[key]!r}")
