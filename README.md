@@ -183,6 +183,9 @@ uv run python test.py \
   * `0`: objectness (sigmoid)
   * `1-4`: box regression (tx, ty, tw, th)
   * `5..(4+NC)`: class probabilities (softmax)
+### Score calculation
+* Final score per box is computed as:
+  * `score = (objectness ** 0.6) * (max_class_prob ** 0.4)`
 
 ### Train
 * Perform training tasks

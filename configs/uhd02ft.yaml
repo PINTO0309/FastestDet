@@ -1,0 +1,28 @@
+DATASET:
+  TRAIN: "dataset/wholebody34/trainft.txt"
+  VAL: "dataset/wholebody34/valft.txt"
+  NAMES: "configs/uhd02.names"
+MODEL:
+  INPUT_WIDTH: 64
+  INPUT_HEIGHT: 64
+TRAIN:
+  LR: 0.00100
+  WARMUP: true
+  BATCH_SIZE: 64
+  END_EPOCH: 300
+  OPTIMIZER: adamw
+  WEIGHT_DECAY: 0.0001
+  SCHEDULER: cosine
+  MIN_LR: 0.0
+  T_MAX: 300
+  CLASSES: 0,7
+# TRAIN:
+#   LR: 0.0001
+#   WARMUP: true
+#   BATCH_SIZE: 64
+#   END_EPOCH: 300
+#   MILESTIONES:
+#     - 100
+#     - 200
+#     - 250
+#   CLASSES: 0,7

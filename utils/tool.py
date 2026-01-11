@@ -45,11 +45,11 @@ class LoadYaml:
         self.scheduler_step_size = data["TRAIN"].get("STEP_SIZE", 10)
         self.scheduler_min_lr = data["TRAIN"].get("MIN_LR", 0.0)
         self.scheduler_t_max = data["TRAIN"].get("T_MAX", self.end_epoch)
-        
+
         self.input_width = data["MODEL"]["INPUT_WIDTH"]
         self.input_height = data["MODEL"]["INPUT_HEIGHT"]
         self.category_num = self._resolve_category_num(data)
-        
+
         print("Load yaml sucess...")
 
     def _count_names(self, path):
@@ -110,7 +110,7 @@ class EMA():
         self.backup = {}
 
 # Post-processing (normalized coordinates)
-def handle_preds(preds, device, conf_thresh=0.25, nms_thresh=0.45):
+def handle_preds(preds: torch.Tensor, device, conf_thresh=0.25, nms_thresh=0.45):
     total_bboxes, output_bboxes  = [], []
     # Convert feature map to bounding box coordinates
     N, C, H, W = preds.shape
@@ -129,7 +129,7 @@ def handle_preds(preds, device, conf_thresh=0.25, nms_thresh=0.45):
 
     # Bounding box coordinates
     gy, gx = torch.meshgrid([torch.arange(H), torch.arange(W)], indexing="ij")
-    bw, bh = preg[..., 2].sigmoid(), preg[..., 3].sigmoid() 
+    bw, bh = preg[..., 2].sigmoid(), preg[..., 3].sigmoid()
     bcx = (preg[..., 0].tanh() + gx.to(device)) / W
     bcy = (preg[..., 1].tanh() + gy.to(device)) / H
 
@@ -141,7 +141,7 @@ def handle_preds(preds, device, conf_thresh=0.25, nms_thresh=0.45):
     bboxes[..., 2], bboxes[..., 3] = x2, y2
     bboxes = bboxes.reshape(N, H*W, 6)
     total_bboxes.append(bboxes)
-        
+
     batch_bboxes = torch.cat(total_bboxes, 1)
 
     # Apply NMS to bounding boxes

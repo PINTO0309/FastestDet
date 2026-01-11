@@ -364,7 +364,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fastestdet"
+name = "fastestdetnext"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
