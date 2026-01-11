@@ -53,7 +53,7 @@ Intel|i7-8700(X86-cpu)|Linux(amd64)|ncnn|4.51ms|4.33ms
 # How to use
 ## Dependent installation
 ```bash
-git clone https://github.com/PINTO0309/FastestDet.git && cd FastestDet
+git clone https://github.com/PINTO0309/FastestDetNext.git && cd FastestDetNext
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 source .venv/bin/activate
