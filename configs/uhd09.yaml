@@ -24,7 +24,7 @@ RENDER:
   PRIORITY_RULES:
     - parent: 7
       children: 8,9,10,11,12,13,14,15
-      iou: 0.9
+      iou: 0.8
       # If set to true, children that do not match the parent will not be drawn.
       require_parent_match: true
       # If set to true, the child's bbox will be drawn in the parent's coordinates if the parent-child IoU is greater than or equal to the threshold.
