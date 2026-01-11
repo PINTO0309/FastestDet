@@ -196,7 +196,7 @@ uv run python train.py \
 uv run python train.py \
 --exp-name exp_x30_00_x1_50_64x64_lr0.00010_skipred_noema_P1 \
 --epoch 300 \
---lr 0.00010 \
+--lr 0.00100 \
 --yaml configs/uhd02.yaml \
 --opencv_inter_nearest \
 --pyramid-levels P1 \
