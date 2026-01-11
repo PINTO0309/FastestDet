@@ -49,7 +49,11 @@ class LoadYaml:
         self.input_width = data["MODEL"]["INPUT_WIDTH"]
         self.input_height = data["MODEL"]["INPUT_HEIGHT"]
         self.category_num = self._resolve_category_num(data)
-
+        render_cfg = data.get("RENDER", {})
+        self.render_priority_rules = render_cfg.get("PRIORITY_RULES")
+        self.render_label_ids = render_cfg.get("LABEL_IDS")
+        self.render_score_ids = render_cfg.get("SCORE_IDS")
+        
         print("Load yaml sucess...")
 
     def _count_names(self, path):

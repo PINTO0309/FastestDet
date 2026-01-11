@@ -16,6 +16,14 @@ TRAIN:
   MIN_LR: 0.0
   T_MAX: 300
   CLASSES: 0,7
+RENDER:
+  LABEL_IDS: 8,9,10,11,12,13,14,15
+  SCORE_IDS:
+  PRIORITY_RULES:
+    - parent: 7
+      children: 8,9,10,11,12,13,14,15
+      iou: 0.9
+      require_parent_match: true
 # TRAIN:
 #   LR: 0.0001
 #   WARMUP: true

@@ -240,6 +240,9 @@ class FastestDet:
         if opt.epoch is not None:
             self.cfg.end_epoch = int(opt.epoch)
         self.val_interval = max(1, int(opt.val_interval))
+        self.render_priority_rules = self._normalize_render_priority_rules(self.cfg.render_priority_rules)
+        self.render_label_ids = self._normalize_render_label_ids(self.cfg.render_label_ids)
+        self.render_score_ids = self._normalize_render_label_ids(self.cfg.render_score_ids)
         self.resize_mode = opt.resize_mode
         self.aug_yaml = opt.aug_yaml if opt.aug_yaml else None
         self.input_channels = resize_output_channels(self.resize_mode)
@@ -867,6 +870,127 @@ class FastestDet:
             class_id = 0
         return palette[class_id % len(palette)]
 
+    def _normalize_render_priority_rules(self, rules):
+        if not rules:
+            return []
+        normalized = []
+        class_map = None
+        if self.cfg.classes is not None:
+            class_map = {int(cid): idx for idx, cid in enumerate(self.cfg.classes)}
+        for rule in rules:
+            if not isinstance(rule, dict):
+                continue
+            parents = parse_classes(rule.get("parent", rule.get("parents")))
+            children = parse_classes(rule.get("children", rule.get("child")))
+            if not parents or not children:
+                continue
+            mapped_parents = []
+            for pid in parents:
+                try:
+                    pid = int(pid)
+                except (TypeError, ValueError):
+                    continue
+                if class_map is not None:
+                    if pid not in class_map:
+                        continue
+                    pid = class_map[pid]
+                mapped_parents.append(pid)
+            mapped_children = []
+            for cid in children:
+                try:
+                    cid = int(cid)
+                except (TypeError, ValueError):
+                    continue
+                if class_map is not None:
+                    if cid not in class_map:
+                        continue
+                    cid = class_map[cid]
+                mapped_children.append(cid)
+            if not mapped_parents or not mapped_children:
+                continue
+            try:
+                iou = float(rule.get("iou", 0.9))
+            except (TypeError, ValueError):
+                iou = 0.9
+            iou = min(max(iou, 0.0), 1.0)
+            require_parent_match = rule.get("require_parent_match", False)
+            if isinstance(require_parent_match, str):
+                require_parent_match = require_parent_match.strip().lower() in ("1", "true", "yes", "y", "on")
+            require_parent_match = bool(require_parent_match)
+            normalized.append({
+                "parents": mapped_parents,
+                "children": mapped_children,
+                "iou": iou,
+                "require_parent_match": require_parent_match,
+            })
+        return normalized
+
+    def _normalize_render_label_ids(self, label_ids):
+        if label_ids is None:
+            return None
+        if isinstance(label_ids, str) and not label_ids.strip():
+            return set()
+        ids = parse_classes(label_ids)
+        if not ids:
+            return set()
+        class_map = None
+        if self.cfg.classes is not None:
+            class_map = {int(cid): idx for idx, cid in enumerate(self.cfg.classes)}
+        normalized = set()
+        for cid in ids:
+            try:
+                cid = int(cid)
+            except (TypeError, ValueError):
+                continue
+            if class_map is not None:
+                if cid not in class_map:
+                    continue
+                cid = class_map[cid]
+            normalized.add(cid)
+        return normalized
+
+    def _bbox_iou_one_to_many(self, box, boxes):
+        px1, py1, px2, py2 = box
+        cx1, cy1, cx2, cy2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+        inter_w = np.maximum(0.0, np.minimum(px2, cx2) - np.maximum(px1, cx1))
+        inter_h = np.maximum(0.0, np.minimum(py2, cy2) - np.maximum(py1, cy1))
+        inter = inter_w * inter_h
+        p_area = max(0.0, px2 - px1) * max(0.0, py2 - py1)
+        c_area = np.maximum(0.0, cx2 - cx1) * np.maximum(0.0, cy2 - cy1)
+        union = p_area + c_area - inter + 1e-9
+        return inter / union
+
+    def _apply_render_priority_rules(self, boxes):
+        if not self.render_priority_rules:
+            return boxes
+        keep = np.ones(len(boxes), dtype=bool)
+        for rule in self.render_priority_rules:
+            parents = rule["parents"]
+            children = rule["children"]
+            thresh = rule["iou"]
+            require_parent_match = rule.get("require_parent_match", False)
+            if not parents or not children:
+                continue
+            parent_idx = [i for i in range(len(boxes)) if keep[i] and int(boxes[i, 5]) in parents]
+            child_idx = [i for i in range(len(boxes)) if keep[i] and int(boxes[i, 5]) in children]
+            if not parent_idx or not child_idx:
+                if require_parent_match and child_idx:
+                    for i in child_idx:
+                        keep[i] = False
+                continue
+            child_boxes = boxes[child_idx, :4]
+            parent_boxes = boxes[parent_idx, :4]
+            for i in parent_idx:
+                ious = self._bbox_iou_one_to_many(boxes[i, :4], child_boxes)
+                if ious.max() >= thresh:
+                    keep[i] = False
+            if require_parent_match:
+                for i, child_box in zip(child_idx, child_boxes):
+                    ious = self._bbox_iou_one_to_many(child_box, parent_boxes)
+                    if ious.max() < thresh:
+                        keep[i] = False
+        return boxes[keep]
+
     def _prepare_infer_input(self, img_bgr):
         if self.resize_mode is None:
             resized = cv2.resize(
@@ -909,6 +1033,8 @@ class FastestDet:
             if not output:
                 continue
             boxes = output[0].cpu().numpy() if output[0].numel() else []
+            if len(boxes):
+                boxes = self._apply_render_priority_rules(boxes)
             h, w = img.shape[:2]
             for box in boxes:
                 x1, y1, x2, y2, score, cls_id = box.tolist()
@@ -917,10 +1043,20 @@ class FastestDet:
                 x2 = max(0, min(w - 1, int(x2 * w)))
                 y2 = max(0, min(h - 1, int(y2 * h)))
                 cls_id = int(cls_id)
-                label = self.label_names[cls_id] if cls_id < len(self.label_names) else str(cls_id)
+                label_allowed = True
+                if self.render_label_ids is not None:
+                    label_allowed = cls_id in self.render_label_ids
+                label = None
+                if label_allowed:
+                    label = self.label_names[cls_id] if cls_id < len(self.label_names) else str(cls_id)
                 color = self._color_for_class(cls_id)
                 cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(img, f"{label}:{score:.2f}", (x1, max(0, y1 - 5)), 0, 0.6, color, 2)
+                if label:
+                    show_score = True
+                    if self.render_score_ids is not None:
+                        show_score = cls_id in self.render_score_ids
+                    text = f"{label}:{score:.2f}" if show_score else label
+                    cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, color, 2)
             save_path = os.path.join(out_dir, os.path.basename(path))
             cv2.imwrite(save_path, img)
 
