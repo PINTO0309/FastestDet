@@ -3,7 +3,7 @@ DATASET:
   VAL: "dataset/wholebody34/val.txt"
   NAMES: "configs/uhd02.names"
 MODEL:
-  NC: 9
+  NC: 2
   INPUT_WIDTH: 64
   INPUT_HEIGHT: 64
 TRAIN:
