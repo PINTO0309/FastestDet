@@ -56,6 +56,24 @@ class LoadYaml:
         
         print("Load yaml sucess...")
 
+    def __repr__(self):
+        return (
+            "LoadYaml("
+            f"train_txt={self.train_txt!r}, "
+            f"val_txt={self.val_txt!r}, "
+            f"names={self.names!r}, "
+            f"input_width={self.input_width}, "
+            f"input_height={self.input_height}, "
+            f"category_num={self.category_num}, "
+            f"classes={self.classes!r}, "
+            f"learn_rate={self.learn_rate}, "
+            f"batch_size={self.batch_size}, "
+            f"end_epoch={self.end_epoch}"
+            ")"
+        )
+
+    __str__ = __repr__
+
     def _count_names(self, path):
         if not path or not os.path.exists(path):
             return None
