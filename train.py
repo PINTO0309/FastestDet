@@ -28,7 +28,7 @@ from utils.resize import (
 from utils.evaluation import CocoDetectionEvaluator
 
 from module.loss import DetectorLoss
-from module.detector import Detector
+from module.detector import Detector, normalize_pyramid_levels
 
 # Suppress noisy future warnings from dependencies.
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -119,6 +119,7 @@ class FastestDet:
         parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
         parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
         parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
+        parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
         parser.add_argument('--teacher-weight', type=str, default=None, help='teacher weight for distillation')
         parser.add_argument('--teacher-stage-out-channels', type=float, default=None, help='teacher stage_out_channels multiplier (0.125 step)')
         parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.125 step)')
@@ -244,6 +245,7 @@ class FastestDet:
         _validate_eighth_step(opt.stage_repeats, "stage_repeats")
         self.stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
         self.stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
+        self.pyramid_levels = normalize_pyramid_levels(opt.pyramid_levels)
         self.best_map05 = float("-inf")
         self.latest_map05 = None
         self.best_epochs = []
@@ -276,6 +278,7 @@ class FastestDet:
                 use_skip_residual=self.use_skip_residual,
                 use_ese=self.use_ese,
                 use_se=self.use_se,
+                pyramid_levels=self.pyramid_levels,
             ).to(device)
             self.model.load_state_dict(torch.load(opt.weight, map_location=device))
         else:
@@ -288,6 +291,7 @@ class FastestDet:
                 use_skip_residual=self.use_skip_residual,
                 use_ese=self.use_ese,
                 use_se=self.use_se,
+                pyramid_levels=self.pyramid_levels,
             ).to(device)
 
         if self.use_ema:
@@ -346,6 +350,7 @@ class FastestDet:
                 use_skip_residual=teacher_use_skip,
                 use_ese=teacher_use_ese,
                 use_se=teacher_use_se,
+                pyramid_levels=self.pyramid_levels,
             ).to(device)
             self.teacher_model.load_state_dict(teacher_state)
             self.teacher_model.eval()
@@ -633,6 +638,7 @@ class FastestDet:
             "classes": self.cfg.classes,
             "stage_out_channels": self.stage_out_channels,
             "stage_repeats": self.stage_repeats,
+            "pyramid_levels": self.pyramid_levels,
             "input_channels": self.input_channels,
             "use_skip_residual": self.use_skip_residual,
             "use_se": self.use_se,
@@ -653,6 +659,7 @@ class FastestDet:
                     "stage_out_channels": self.stage_out_channels,
                     "stage_repeats": self.stage_repeats,
                     "input_channels": self.input_channels,
+                    "pyramid_levels": self.pyramid_levels,
                     "use_ema": self.use_ema,
                     "use_amp": self.use_amp,
                 },
@@ -665,6 +672,7 @@ class FastestDet:
             state["teacher_use_skip_residual"] = getattr(self, "teacher_use_skip_residual", None)
             state["teacher_use_se"] = getattr(self, "teacher_use_se", None)
             state["teacher_use_ese"] = getattr(self, "teacher_use_ese", None)
+            state["teacher_pyramid_levels"] = self.pyramid_levels
         if self.use_ema and self.ema is not None:
             state["ema_shadow"] = self.ema.shadow
             state["ema_decay"] = self.ema.decay
@@ -707,6 +715,7 @@ class FastestDet:
         ckpt_use_skip = checkpoint.get("use_skip_residual")
         ckpt_use_se = checkpoint.get("use_se")
         ckpt_use_ese = checkpoint.get("use_ese")
+        ckpt_pyramid_levels = checkpoint.get("pyramid_levels")
         if ckpt_stage_out is not None and ckpt_stage_out != self.stage_out_channels:
             raise ValueError("stage_out_channels mismatch with checkpoint.")
         if ckpt_stage_repeats is not None and ckpt_stage_repeats != self.stage_repeats:
@@ -719,6 +728,8 @@ class FastestDet:
             raise ValueError("use_se mismatch with checkpoint.")
         if ckpt_use_ese is not None and ckpt_use_ese != self.use_ese:
             raise ValueError("use_ese mismatch with checkpoint.")
+        if ckpt_pyramid_levels is not None and tuple(ckpt_pyramid_levels) != self.pyramid_levels:
+            raise ValueError("pyramid_levels mismatch with checkpoint.")
         self.model.load_state_dict(checkpoint["model"])
         if "optimizer" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
@@ -745,6 +756,7 @@ class FastestDet:
             teacher_use_skip = checkpoint.get("teacher_use_skip_residual")
             teacher_use_se = checkpoint.get("teacher_use_se")
             teacher_use_ese = checkpoint.get("teacher_use_ese")
+            teacher_pyramid_levels = checkpoint.get("teacher_pyramid_levels", self.pyramid_levels)
             if teacher_out_channels is None or teacher_repeats is None:
                 raise ValueError("Checkpoint is missing teacher backbone settings.")
             self.teacher_stage_out_channels = teacher_out_channels
@@ -763,6 +775,7 @@ class FastestDet:
                 use_skip_residual=self.teacher_use_skip_residual,
                 use_se=self.teacher_use_se,
                 use_ese=self.teacher_use_ese,
+                pyramid_levels=teacher_pyramid_levels,
             ).to(device)
             self.teacher_model.eval()
             for param in self.teacher_model.parameters():

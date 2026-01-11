@@ -8,7 +8,7 @@ from onnxsim import simplify
 
 import torch
 from utils.tool import *
-from module.detector import Detector
+from module.detector import Detector, normalize_pyramid_levels
 
 BASE_STAGE_REPEATS = [4, 8, 4]
 BASE_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
@@ -45,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--cpu', action="store_true", default=False, help='Run on cpu')
     parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.5 step)')
     parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.5 step)')
+    parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
     se_group = parser.add_mutually_exclusive_group()
     se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
     se_group.add_argument('--use-ese', action='store_true', default=False, help='enable eSE on shared features')
@@ -76,6 +77,7 @@ if __name__ == '__main__':
     _validate_half_step(opt.stage_repeats, "stage_repeats")
     stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
     stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
+    pyramid_levels = normalize_pyramid_levels(opt.pyramid_levels)
     model = Detector(
         cfg.category_num,
         True,
@@ -83,6 +85,7 @@ if __name__ == '__main__':
         stage_out_channels=stage_out_channels,
         use_ese=opt.use_ese,
         use_se=opt.use_se,
+        pyramid_levels=pyramid_levels,
     ).to(device)
     model.load_state_dict(torch.load(opt.weight, map_location=device))
     #sets the module in eval node

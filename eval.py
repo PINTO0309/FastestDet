@@ -8,7 +8,7 @@ from utils.tool import *
 from utils.datasets import *
 from utils.evaluation import CocoDetectionEvaluator
 
-from module.detector import Detector
+from module.detector import Detector, normalize_pyramid_levels
 
 # Default backbone configuration for scaling.
 BASE_STAGE_REPEATS = [4, 8, 4]
@@ -44,6 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight', type=str, default=None, help='.weight config')
     parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
     parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
+    parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
     parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
     se_group = parser.add_mutually_exclusive_group()
     se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
@@ -63,6 +64,7 @@ if __name__ == '__main__':
     _validate_eighth_step(opt.stage_repeats, "stage_repeats")
     stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
     stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, opt.stage_repeats)
+    pyramid_levels = normalize_pyramid_levels(opt.pyramid_levels)
     model = Detector(
         cfg.category_num,
         True,
@@ -71,6 +73,7 @@ if __name__ == '__main__':
         use_skip_residual=opt.use_skip_residual,
         use_ese=opt.use_ese,
         use_se=opt.use_se,
+        pyramid_levels=pyramid_levels,
     ).to(device)
     model.load_state_dict(torch.load(opt.weight))
     model.eval()
