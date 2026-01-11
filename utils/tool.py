@@ -1,3 +1,4 @@
+import os
 import yaml
 import torch
 import torchvision
@@ -47,10 +48,33 @@ class LoadYaml:
         
         self.input_width = data["MODEL"]["INPUT_WIDTH"]
         self.input_height = data["MODEL"]["INPUT_HEIGHT"]
-        
-        self.category_num = data["MODEL"]["NC"]
+        self.category_num = self._resolve_category_num(data)
         
         print("Load yaml sucess...")
+
+    def _count_names(self, path):
+        if not path or not os.path.exists(path):
+            return None
+        with open(path, encoding="utf8") as f:
+            names = [line.strip() for line in f if line.strip()]
+        return len(names) if names else None
+
+    def _resolve_category_num(self, data):
+        model_nc = data.get("MODEL", {}).get("NC")
+        if self.classes is not None:
+            category_num = len(self.classes)
+            if model_nc is not None and int(model_nc) != category_num:
+                print("Warning: MODEL.NC does not match TRAIN.CLASSES; using TRAIN.CLASSES.")
+            return category_num
+        if model_nc is not None:
+            return int(model_nc)
+        names_count = self._count_names(self.names)
+        if names_count is None:
+            raise ValueError("Unable to derive category count. Set TRAIN.CLASSES, MODEL.NC, or a valid DATASET.NAMES file.")
+        return names_count
+
+    def refresh_category_num(self):
+        self.category_num = self._resolve_category_num({"MODEL": {"NC": None}})
 
 class EMA():
     def __init__(self, model, decay):

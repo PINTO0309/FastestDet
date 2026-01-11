@@ -233,6 +233,7 @@ class FastestDet:
         cli_classes = parse_classes(opt.classes)
         if cli_classes is not None:
             self.cfg.classes = cli_classes
+            self.cfg.refresh_category_num()
         if opt.lr is not None:
             self.cfg.learn_rate = float(opt.lr)
         if opt.epoch is not None:
@@ -629,6 +630,7 @@ class FastestDet:
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
+            "category_num": self.cfg.category_num,
             "best_map05": self.best_map05,
             "best_epochs": self.best_epochs,
             "latest_map05": self.latest_map05,
@@ -659,6 +661,7 @@ class FastestDet:
                     "stage_out_channels": self.stage_out_channels,
                     "stage_repeats": self.stage_repeats,
                     "input_channels": self.input_channels,
+                    "category_num": self.cfg.category_num,
                     "pyramid_levels": self.pyramid_levels,
                     "use_ema": self.use_ema,
                     "use_amp": self.use_amp,
@@ -716,6 +719,7 @@ class FastestDet:
         ckpt_use_se = checkpoint.get("use_se")
         ckpt_use_ese = checkpoint.get("use_ese")
         ckpt_pyramid_levels = checkpoint.get("pyramid_levels")
+        ckpt_category_num = checkpoint.get("category_num")
         if ckpt_stage_out is not None and ckpt_stage_out != self.stage_out_channels:
             raise ValueError("stage_out_channels mismatch with checkpoint.")
         if ckpt_stage_repeats is not None and ckpt_stage_repeats != self.stage_repeats:
@@ -730,6 +734,8 @@ class FastestDet:
             raise ValueError("use_ese mismatch with checkpoint.")
         if ckpt_pyramid_levels is not None and tuple(ckpt_pyramid_levels) != self.pyramid_levels:
             raise ValueError("pyramid_levels mismatch with checkpoint.")
+        if ckpt_category_num is not None and ckpt_category_num != self.cfg.category_num:
+            raise ValueError("category_num mismatch with checkpoint.")
         self.model.load_state_dict(checkpoint["model"])
         if "optimizer" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer"])

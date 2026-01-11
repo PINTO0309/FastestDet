@@ -134,7 +134,6 @@ uv run python test.py \
     VAL: "/home/qiuqiu/Desktop/coco2017/val2017.txt"      # Val dataset path .txt file
     NAMES: "dataset/coco128/coco.names"                   # .names category label file
   MODEL:
-    NC: 80                                                # Number of detection categories
     INPUT_WIDTH: 352                                      # The width of the model input image
     INPUT_HEIGHT: 352                                     # The height of the model input image
   TRAIN:
@@ -148,6 +147,18 @@ uv run python test.py \
       - 250
       - 300
   ```
+* Number of classes is derived from `TRAIN.CLASSES` (if set) or the number of lines in `DATASET.NAMES`.
+* `--classes` overrides `TRAIN.CLASSES` and updates the derived class count.
+### Stride details
+* Backbone downsampling: `first_conv` stride 2, `maxpool` stride 2, and the first block of each stage (`stage2/3/4`) uses stride 2.
+* Feature map strides (relative to input):
+  * `P1` (stage2 output): stride 8
+  * `P2` (stage3 output): stride 16
+  * `P3` (stage4 output): stride 32
+### `--pyramid-levels`
+* Comma-separated list of pyramid levels to fuse: `P1,P2,P3` (default) or any subset (e.g. `P1,P3`, `P2`).
+* When fusing multiple levels, features are aligned to `P2` resolution: `P1` is downsampled (avg pool stride 2), `P3` is upsampled (x2).
+* When using a single level, its native stride is used (P1=8, P2=16, P3=32).
 ### Train
 * Perform training tasks
 ```bash
@@ -164,8 +175,6 @@ uv run python train.py \
 --stage-repeats 1.00 \
 --exp-name exp_x1_00_x1_00 \
 --use-skip-residual \
---use-ese \
---use-ema \
 --use-amp
 
 uv run python train.py \
@@ -178,8 +187,6 @@ uv run python train.py \
 --stage-repeats 1.00 \
 --exp-name exp_x1_25_x1_00 \
 --use-skip-residual \
---use-ese \
---use-ema \
 --use-amp
 
 uv run python train.py \
@@ -192,8 +199,6 @@ uv run python train.py \
 --stage-repeats 1.00 \
 --exp-name exp_x1_50_x1_00 \
 --use-skip-residual \
---use-ese \
---use-ema \
 --use-amp
 
 uv run python train.py \
@@ -206,8 +211,6 @@ uv run python train.py \
 --stage-repeats 1.00 \
 --exp-name exp_x1_75_x1_00 \
 --use-skip-residual \
---use-ese \
---use-ema \
 --use-amp
 
 uv run python train.py \
@@ -220,8 +223,6 @@ uv run python train.py \
 --stage-repeats 1.00 \
 --exp-name exp_x2_00_x1_00 \
 --use-skip-residual \
---use-ese \
---use-ema \
 --use-amp
 ```
 ### Evaluation
