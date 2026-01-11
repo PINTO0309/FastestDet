@@ -174,6 +174,16 @@ uv run python test.py \
 * Comma-separated list of pyramid levels to fuse: `P1,P2,P3` (default) or any subset (e.g. `P1,P3`, `P2`).
 * When fusing multiple levels, features are aligned to `P2` resolution: `P1` is downsampled (avg pool stride 2), `P3` is upsampled (x2).
 * When using a single level, its native stride is used (P1=8, P2=16, P3=32).
+### Output tensor meaning
+* Output shape is `float32[B, 1 + 4 + NC, H, W]`.
+  * `B`: batch size
+  * `NC`: number of classes (derived from `TRAIN.CLASSES` or `DATASET.NAMES`)
+  * `H, W`: feature map size (depends on input size and selected stride)
+* Channel layout per spatial location:
+  * `0`: objectness (sigmoid)
+  * `1-4`: box regression (tx, ty, tw, th)
+  * `5..(4+NC)`: class probabilities (softmax)
+
 ### Train
 * Perform training tasks
 ```bash
