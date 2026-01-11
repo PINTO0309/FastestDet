@@ -1,6 +1,6 @@
 DATASET:
-  TRAIN: "dataset/wholebody34/trainft.txt"
-  VAL: "dataset/wholebody34/valft.txt"
+  TRAIN: "dataset/wholebody34/train.txt"
+  VAL: "dataset/wholebody34/val.txt"
   NAMES: "configs/uhd10.names"
 MODEL:
   INPUT_WIDTH: 64
