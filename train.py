@@ -122,8 +122,6 @@ class FastestDet:
         parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
         parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
         parser.add_argument('--teacher-weight', type=str, default=None, help='teacher weight for distillation')
-        parser.add_argument('--teacher-stage-out-channels', type=float, default=None, help='teacher stage_out_channels multiplier (0.125 step)')
-        parser.add_argument('--teacher-stage-repeats', type=float, default=None, help='teacher stage_repeats multiplier (0.125 step)')
         parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
         parser.add_argument('--ema-decay', type=float, default=0.9998, help='EMA decay rate')
@@ -304,39 +302,51 @@ class FastestDet:
         self.teacher_stage_out_channels = None
         self.teacher_stage_repeats = None
         if opt.teacher_weight:
-            teacher_out_mult = opt.teacher_stage_out_channels if opt.teacher_stage_out_channels is not None else opt.stage_out_channels
-            teacher_repeat_mult = opt.teacher_stage_repeats if opt.teacher_stage_repeats is not None else opt.stage_repeats
-            _validate_eighth_step(teacher_out_mult, "teacher_stage_out_channels")
-            _validate_eighth_step(teacher_repeat_mult, "teacher_stage_repeats")
-
             teacher_ckpt = torch.load(opt.teacher_weight, map_location=device)
+            ckpt_stage_out = None
+            ckpt_stage_repeats = None
+            ckpt_state = None
+            ckpt_is_teacher = False
+            if isinstance(teacher_ckpt, dict):
+                if "teacher_stage_out_channels" in teacher_ckpt and "teacher_stage_repeats" in teacher_ckpt:
+                    ckpt_stage_out = teacher_ckpt["teacher_stage_out_channels"]
+                    ckpt_stage_repeats = teacher_ckpt["teacher_stage_repeats"]
+                    ckpt_state = teacher_ckpt.get("teacher_model") or teacher_ckpt.get("model")
+                    ckpt_is_teacher = True
+                elif "stage_out_channels" in teacher_ckpt and "stage_repeats" in teacher_ckpt and "model" in teacher_ckpt:
+                    ckpt_stage_out = teacher_ckpt["stage_out_channels"]
+                    ckpt_stage_repeats = teacher_ckpt["stage_repeats"]
+                    ckpt_state = teacher_ckpt.get("model")
             use_ckpt_backbone = (
-                isinstance(teacher_ckpt, dict)
-                and "model" in teacher_ckpt
-                and "stage_out_channels" in teacher_ckpt
-                and "stage_repeats" in teacher_ckpt
-                and opt.teacher_stage_out_channels is None
-                and opt.teacher_stage_repeats is None
+                ckpt_stage_out is not None
+                and ckpt_stage_repeats is not None
+                and ckpt_state is not None
             )
             teacher_use_skip = self.use_skip_residual
             teacher_use_se = self.use_se
             teacher_use_ese = self.use_ese
-            if isinstance(teacher_ckpt, dict) and "use_skip_residual" in teacher_ckpt:
-                teacher_use_skip = bool(teacher_ckpt["use_skip_residual"])
-            if isinstance(teacher_ckpt, dict) and "use_se" in teacher_ckpt:
-                teacher_use_se = bool(teacher_ckpt["use_se"])
-            if isinstance(teacher_ckpt, dict) and "use_ese" in teacher_ckpt:
-                teacher_use_ese = bool(teacher_ckpt["use_ese"])
+            if isinstance(teacher_ckpt, dict):
+                if ckpt_is_teacher:
+                    if "teacher_use_skip_residual" in teacher_ckpt:
+                        teacher_use_skip = bool(teacher_ckpt["teacher_use_skip_residual"])
+                    if "teacher_use_se" in teacher_ckpt:
+                        teacher_use_se = bool(teacher_ckpt["teacher_use_se"])
+                    if "teacher_use_ese" in teacher_ckpt:
+                        teacher_use_ese = bool(teacher_ckpt["teacher_use_ese"])
+                else:
+                    if "use_skip_residual" in teacher_ckpt:
+                        teacher_use_skip = bool(teacher_ckpt["use_skip_residual"])
+                    if "use_se" in teacher_ckpt:
+                        teacher_use_se = bool(teacher_ckpt["use_se"])
+                    if "use_ese" in teacher_ckpt:
+                        teacher_use_ese = bool(teacher_ckpt["use_ese"])
             if teacher_use_se and teacher_use_ese:
                 raise ValueError("Teacher model cannot enable both SE and eSE.")
-            if use_ckpt_backbone:
-                teacher_out_channels = teacher_ckpt["stage_out_channels"]
-                teacher_repeats = teacher_ckpt["stage_repeats"]
-                teacher_state = teacher_ckpt["model"]
-            else:
-                teacher_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, teacher_out_mult, keep_first=True)
-                teacher_repeats = _scale_stage_list(BASE_STAGE_REPEATS, teacher_repeat_mult)
-                teacher_state = teacher_ckpt["model"] if isinstance(teacher_ckpt, dict) and "model" in teacher_ckpt else teacher_ckpt
+            if not use_ckpt_backbone:
+                raise ValueError("Teacher checkpoint must include backbone metadata (stage_out_channels/stage_repeats).")
+            teacher_out_channels = ckpt_stage_out
+            teacher_repeats = ckpt_stage_repeats
+            teacher_state = ckpt_state
 
             self.teacher_stage_out_channels = teacher_out_channels
             self.teacher_stage_repeats = teacher_repeats
