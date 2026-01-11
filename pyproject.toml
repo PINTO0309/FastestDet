@@ -1,7 +1,7 @@
 [project]
-name = "fastestdet"
+name = "fastestdetnext"
 version = "1.0.0"
-description = " newly designed ultra lightweight anchor free target detection algorithm, weight only 250K parameters, reduces the time consumption by 10% compared with yolo-fastest, and the post-processing is simpler"
+description = "FastestDetNext: Various improvements have been made to make FastestDet even lighter and faster."
 readme = "README.md"
 requires-python = "==3.11.12"
 dependencies = [
