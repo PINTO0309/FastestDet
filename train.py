@@ -112,7 +112,7 @@ class FastestDet:
         parser.add_argument('--weight', type=str, default=None, help='.weight config')
         parser.add_argument('--classes', type=str, default=None, help='comma-separated class ids')
         parser.add_argument('--exp-name', type=str, default="exp", help='experiment name (runs/<exp-name>)')
-        parser.add_argument('--aug-yaml', type=str, default="utils/aug_headpose.yaml", help='augmentation yaml')
+        parser.add_argument('--aug-yaml', type=str, default="utils/aug.yaml", help='augmentation yaml')
         parser.add_argument('--lr', type=float, default=None, help='override learning rate from yaml')
         parser.add_argument('--epoch', type=int, default=None, help='override end epoch from yaml')
         parser.add_argument('--img-size', type=str, default=None, help='override input size as HxW (height x width)')

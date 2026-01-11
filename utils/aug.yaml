@@ -38,4 +38,4 @@ data_augment:
   # ToGray: 0.01
 
   # (3/64)^2 ≈ 0.002197266
-  RemoveOutliers: 0.002197266
+  RemoveOutliers: 0.000244141 # 0.002197266
