@@ -193,16 +193,43 @@ uv run python train.py \
 --yaml configs/coco.yaml
 
 uv run python train.py \
---exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1 \
---epoch 300 \
---lr 0.00100 \
+--exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_02cls \
 --yaml configs/uhd02.yaml \
+--lr 0.00100 \
+--epoch 300 \
+--img-size 64x64 \
 --opencv_inter_nearest \
---pyramid-levels P1 \
 --stage-out-channels 30.00 \
 --stage-repeats 1.50 \
 --use-skip-residual \
---use-amp
+--use-amp \
+--pyramid-levels P1
+
+uv run python train.py \
+--exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls \
+--yaml configs/uhd09.yaml \
+--lr 0.00100 \
+--epoch 300 \
+--img-size 64x64 \
+--opencv_inter_nearest \
+--stage-out-channels 30.00 \
+--stage-repeats 1.50 \
+--use-skip-residual \
+--use-amp \
+--pyramid-levels P1
+
+uv run python train.py \
+--exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_10cls \
+--yaml configs/uhd10.yaml \
+--lr 0.00100 \
+--epoch 300 \
+--img-size 64x64 \
+--opencv_inter_nearest \
+--stage-out-channels 30.00 \
+--stage-repeats 1.50 \
+--use-skip-residual \
+--use-amp \
+--pyramid-levels P1
 ```
 ### Evaluation
 * Calculate map evaluation
