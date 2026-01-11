@@ -153,7 +153,6 @@ uv run python test.py \
     INPUT_HEIGHT: 352                                     # The height of the model input image
   TRAIN:
     LR: 0.001                                             # Train learn rate
-    THRESH: 0.25                                          # ？？？？
     WARMUP: true                                          # Trun on warm up
     BATCH_SIZE: 64                                        # Batch size
     END_EPOCH: 350                                        # Train epichs
