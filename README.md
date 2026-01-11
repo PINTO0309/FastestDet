@@ -194,62 +194,14 @@ uv run python train.py \
 --yaml configs/coco.yaml
 
 uv run python train.py \
---yaml configs/uhd09.yaml \
---lr 0.00100 \
+--exp-name exp_x30_00_x1_50_64x64_lr0.00010_skipred_noema_P1 \
 --epoch 300 \
---img-size 64x64 \
+--lr 0.00010 \
+--yaml configs/uhd02.yaml \
 --opencv_inter_nearest \
---stage-out-channels 1.00 \
---stage-repeats 1.00 \
---exp-name exp_x1_00_x1_00 \
---use-skip-residual \
---use-amp
-
-uv run python train.py \
---yaml configs/uhd09.yaml \
---lr 0.00100 \
---epoch 300 \
---img-size 64x64 \
---opencv_inter_nearest \
---stage-out-channels 1.25 \
---stage-repeats 1.00 \
---exp-name exp_x1_25_x1_00 \
---use-skip-residual \
---use-amp
-
-uv run python train.py \
---yaml configs/uhd09.yaml \
---lr 0.00100 \
---epoch 300 \
---img-size 64x64 \
---opencv_inter_nearest \
---stage-out-channels 1.50 \
---stage-repeats 1.00 \
---exp-name exp_x1_50_x1_00 \
---use-skip-residual \
---use-amp
-
-uv run python train.py \
---yaml configs/uhd09.yaml \
---lr 0.00100 \
---epoch 300 \
---img-size 64x64 \
---opencv_inter_nearest \
---stage-out-channels 1.75 \
---stage-repeats 1.00 \
---exp-name exp_x1_75_x1_00 \
---use-skip-residual \
---use-amp
-
-uv run python train.py \
---yaml configs/uhd09.yaml \
---lr 0.00100 \
---epoch 300 \
---img-size 64x64 \
---opencv_inter_nearest \
---stage-out-channels 2.00 \
---stage-repeats 1.00 \
---exp-name exp_x2_00_x1_00 \
+--pyramid-levels P1 \
+--stage-out-channels 30.00 \
+--stage-repeats 1.50 \
 --use-skip-residual \
 --use-amp
 ```
