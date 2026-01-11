@@ -194,7 +194,7 @@ uv run python train.py \
 --yaml configs/coco.yaml
 
 uv run python train.py \
---exp-name exp_x30_00_x1_50_64x64_lr0.00010_skipred_noema_P1 \
+--exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1 \
 --epoch 300 \
 --lr 0.00100 \
 --yaml configs/uhd02.yaml \
