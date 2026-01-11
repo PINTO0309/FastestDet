@@ -361,11 +361,11 @@ uv run python test.py \
 
 ### Evaluation
 * Calculate map evaluation
-```bash
-uv run python eval.py \
---yaml configs/coco.yaml \
---weight weights/weight_AP05:0.253207_280-epoch.pth
-```
+  ```bash
+  uv run python eval.py \
+  --yaml configs/coco.yaml \
+  --weight weights/weight_AP05:0.253207_280-epoch.pth
+  ```
 * COCO2017 evaluation
   ```
   creating index...
@@ -389,40 +389,39 @@ uv run python eval.py \
   Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.043
   Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.236
   Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.372
-
   ```
 # Deploy
 ## Export onnx
 * You can export .onnx by adding the --onnx option when executing test.py
-```bash
-uv run python test.py \
---yaml configs/coco.yaml \
---weight weights/weight_AP05:0.253207_280-epoch.pth \
---img data/3.jpg \
---onnx
-```
+  ```bash
+  uv run python test.py \
+  --yaml configs/coco.yaml \
+  --weight weights/weight_AP05:0.253207_280-epoch.pth \
+  --img data/3.jpg \
+  --onnx
+  ```
 ## Export torchscript
 * You can export .pt by adding the --torchscript option when executing test.py
-```bash
-uv run python test.py \
---yaml configs/coco.yaml \
---weight weights/weight_AP05:0.253207_280-epoch.pth \
---img data/3.jpg \
---torchscript
+  ```bash
+  uv run python test.py \
+  --yaml configs/coco.yaml \
+  --weight weights/weight_AP05:0.253207_280-epoch.pth \
+  --img data/3.jpg \
+  --torchscript
 ```
 ## NCNN
 * Need to compile ncnn and opencv in advance and modify the path in build.sh
-```bash
-cd example/ncnn/
-sh build.sh
-./FastestDet
-```
+  ```bash
+  cd example/ncnn/
+  sh build.sh
+  ./FastestDet
+  ```
 ## onnx-runtime
 * You can learn about the pre and post-processing methods of FastestDet in this Sample
-```bash
-cd example/onnx-runtime
-uv run python runtime.py
-```
+  ```bash
+  cd example/onnx-runtime
+  uv run python runtime.py
+  ```
 # Citation
 * If you find this project useful in your research, please consider cite:
   ```
