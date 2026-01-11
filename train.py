@@ -917,11 +917,16 @@ class FastestDet:
             if isinstance(require_parent_match, str):
                 require_parent_match = require_parent_match.strip().lower() in ("1", "true", "yes", "y", "on")
             require_parent_match = bool(require_parent_match)
+            use_parent_box = rule.get("use_parent_box", False)
+            if isinstance(use_parent_box, str):
+                use_parent_box = use_parent_box.strip().lower() in ("1", "true", "yes", "y", "on")
+            use_parent_box = bool(use_parent_box)
             normalized.append({
                 "parents": mapped_parents,
                 "children": mapped_children,
                 "iou": iou,
                 "require_parent_match": require_parent_match,
+                "use_parent_box": use_parent_box,
             })
         return normalized
 
@@ -969,6 +974,7 @@ class FastestDet:
             children = rule["children"]
             thresh = rule["iou"]
             require_parent_match = rule.get("require_parent_match", False)
+            use_parent_box = rule.get("use_parent_box", False)
             if not parents or not children:
                 continue
             parent_idx = [i for i in range(len(boxes)) if keep[i] and int(boxes[i, 5]) in parents]
@@ -980,15 +986,25 @@ class FastestDet:
                 continue
             child_boxes = boxes[child_idx, :4]
             parent_boxes = boxes[parent_idx, :4]
-            for i in parent_idx:
-                ious = self._bbox_iou_one_to_many(boxes[i, :4], child_boxes)
-                if ious.max() >= thresh:
-                    keep[i] = False
+            iou_matrix = np.stack([self._bbox_iou_one_to_many(child_box, parent_boxes) for child_box in child_boxes], axis=0)
             if require_parent_match:
-                for i, child_box in zip(child_idx, child_boxes):
-                    ious = self._bbox_iou_one_to_many(child_box, parent_boxes)
-                    if ious.max() < thresh:
-                        keep[i] = False
+                for row, idx in enumerate(child_idx):
+                    if iou_matrix[row].max() < thresh:
+                        keep[idx] = False
+            if use_parent_box:
+                for row, idx in enumerate(child_idx):
+                    if not keep[idx]:
+                        continue
+                    ious = iou_matrix[row]
+                    if ious.max() >= thresh:
+                        parent_match = parent_idx[int(ious.argmax())]
+                        boxes[idx, :4] = boxes[parent_match, :4]
+            child_keep_mask = np.array([keep[i] for i in child_idx], dtype=bool)
+            if child_keep_mask.any():
+                active_ious = iou_matrix[child_keep_mask]
+                for col, p_idx in enumerate(parent_idx):
+                    if (active_ious[:, col] >= thresh).any():
+                        keep[p_idx] = False
         return boxes[keep]
 
     def _prepare_infer_input(self, img_bgr):
