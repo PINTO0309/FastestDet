@@ -1,5 +1,6 @@
-# This fork `custom` branch aims to improve the official implementation.
-Various improvements have been added to make it even lighter and faster.
+# FastestDetNext
+Various improvements have been made to make FastestDet even lighter and faster.
+# This fork `custom` branch aims to improve the official implementation. A huge thank you to the authors of FastestDet.
 1. Optimizer: SGD/AdamW
 2. Scheduler: Step/Cosine
 3. EMA
