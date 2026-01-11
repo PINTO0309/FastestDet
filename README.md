@@ -1,4 +1,18 @@
 # This fork `custom` branch aims to improve the official implementation.
+Various improvements have been added to make it even lighter and faster.
+1. Optimizer: SGD/AdamW
+2. Scheduler: Step/Cosine
+3. EMA
+4. Distillation
+5. Resume
+6. Toggle pyramid-levels: `P1 only`, `P2 only`, `P3 only`, `P1 + P2`, `P1 + P3`, `P2 + P3`, `P1 + P2 + P3`
+7. Backbone ShuffleNetv2 improvements: `Shuffle-free shufflenet`
+8. SE block/eSE block
+9. Skip-Residual block
+10. Free expansion of the number of channels by `--stage-out-channels`
+11. Freely expansion of the number of stages by `--stage-repeats`
+
+---
 
 ***2022.7.14:Optimize loss, adopt IOU aware based on smooth L1, and the AP is significantly increased by 0.7***
 # :zap:FastestDet:zap:
