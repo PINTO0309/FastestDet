@@ -88,14 +88,18 @@ class DetectHead(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.softmax = nn.Softmax(dim=1)
         
-    def forward(self, x):
+    def forward(self, x, return_logits=False):
         x = self.conv1x1(x)
-        
+
         obj = self.sigmoid(self.obj_layers(x))
         reg = self.reg_layers(x)
-        cls = self.softmax(self.cls_layers(x))
+        cls_logits = self.cls_layers(x)
+        cls = self.softmax(cls_logits)
 
-        return torch.cat((obj, reg, cls), dim =1)
+        output = torch.cat((obj, reg, cls), dim=1)
+        if return_logits:
+            return output, cls_logits
+        return output
 
 class ESE(nn.Module):
     def __init__(self, channels):

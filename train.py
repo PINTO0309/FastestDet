@@ -122,6 +122,8 @@ class FastestDet:
         parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
         parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
         parser.add_argument('--teacher-weight', type=str, default=None, help='teacher weight for distillation')
+        parser.add_argument('--distill-weight-max', type=float, default=1.0, help='max distillation weight (cosine ramp from 0 to max)')
+        parser.add_argument('--distill-temperature', type=float, default=1.5, help='distillation temperature for KL')
         parser.add_argument('--resume', type=str, default=None, help='resume checkpoint path')
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
         parser.add_argument('--ema-decay', type=float, default=0.9998, help='EMA decay rate')
@@ -264,6 +266,12 @@ class FastestDet:
         self.use_skip_residual = opt.use_skip_residual
         self.use_se = opt.use_se
         self.use_ese = opt.use_ese
+        self.distill_weight_max = float(opt.distill_weight_max)
+        if self.distill_weight_max < 0:
+            raise ValueError("distill_weight_max must be >= 0.")
+        self.distill_temp = float(opt.distill_temperature)
+        if self.distill_temp <= 0:
+            raise ValueError("distill_temp must be > 0.")
         self.onnx_exported = False
 
         # Initialize model
@@ -587,6 +595,8 @@ class FastestDet:
             f"train_cls={train_metrics['cls']:.6f}",
         ]
         if distill_metrics is not None:
+            if "weight" in distill_metrics:
+                parts.append(f"distill_weight={distill_metrics['weight']:.4f}")
             parts.extend([
                 f"distill_total={distill_metrics['total']:.6f}",
                 f"distill_obj={distill_metrics['obj']:.6f}",
@@ -914,7 +924,7 @@ class FastestDet:
             save_path = os.path.join(out_dir, os.path.basename(path))
             cv2.imwrite(save_path, img)
 
-    def _distill_loss(self, preds, teacher_preds):
+    def _distill_loss(self, preds, teacher_preds, student_logits=None, teacher_logits=None):
         pred = preds.permute(0, 2, 3, 1)
         teacher = teacher_preds.permute(0, 2, 3, 1)
         pobj = pred[..., 0]
@@ -925,9 +935,27 @@ class FastestDet:
         tcls = teacher[..., 5:]
         obj_loss = F.mse_loss(pobj, tobj)
         box_loss = F.smooth_l1_loss(preg, treg)
-        cls_loss = F.kl_div(torch.log(pcls + 1e-9), tcls, reduction="batchmean")
+        if student_logits is not None and teacher_logits is not None:
+            slogits = student_logits.permute(0, 2, 3, 1)
+            tlogits = teacher_logits.permute(0, 2, 3, 1)
+            temp = self.distill_temp
+            s_log_prob = F.log_softmax(slogits / temp, dim=-1)
+            t_prob = F.softmax(tlogits / temp, dim=-1)
+            cls_loss = F.kl_div(s_log_prob, t_prob, reduction="batchmean") * (temp * temp)
+        else:
+            cls_loss = F.kl_div(torch.log(pcls + 1e-9), tcls, reduction="batchmean")
         total = obj_loss + box_loss + cls_loss
         return obj_loss, box_loss, cls_loss, total
+
+    def _distill_weight(self, epoch):
+        if self.distill_weight_max <= 0:
+            return 0.0
+        total_epochs = max(1, int(self.cfg.end_epoch))
+        if total_epochs == 1:
+            return self.distill_weight_max
+        progress = (epoch - 1) / float(total_epochs - 1)
+        progress = min(max(progress, 0.0), 1.0)
+        return self.distill_weight_max * 0.5 * (1.0 - math.cos(math.pi * progress))
 
     def train(self):
         # Training loop
@@ -950,10 +978,13 @@ class FastestDet:
             epoch_distill_box = 0.0
             epoch_distill_cls = 0.0
             epoch_distill_total = 0.0
+            distill_weight = 0.0
             batch_count = 0
             val_map05 = None
             last_name = None
             best_name = None
+            if self.teacher_model is not None:
+                distill_weight = self._distill_weight(epoch)
             pbar = tqdm(self.train_dataloader, dynamic_ncols=True)
             for imgs, targets in pbar:
                 # Data preprocessing
@@ -963,16 +994,25 @@ class FastestDet:
                 targets = targets.to(device)
                 # Model forward
                 with torch.cuda.amp.autocast(enabled=self.use_amp):
-                    preds = self.model(imgs)
+                    student_logits = None
+                    if self.teacher_model is not None:
+                        preds, student_logits = self.model(imgs, return_logits=True)
+                    else:
+                        preds = self.model(imgs)
 
                     # Loss calculation
                     iou, obj, cls, total = self.loss_function(preds, targets)
                     distill_obj = distill_box = distill_cls = distill_total = None
                     if self.teacher_model is not None:
                         with torch.no_grad():
-                            teacher_preds = self.teacher_model(imgs)
-                        distill_obj, distill_box, distill_cls, distill_total = self._distill_loss(preds, teacher_preds)
-                        total = total + distill_total
+                            teacher_preds, teacher_logits = self.teacher_model(imgs, return_logits=True)
+                        distill_obj, distill_box, distill_cls, distill_total = self._distill_loss(
+                            preds,
+                            teacher_preds,
+                            student_logits,
+                            teacher_logits,
+                        )
+                        total = total + distill_total * distill_weight
                 # Backpropagation
                 self.scaler.scale(total).backward()
                 # Update model parameters
@@ -1063,7 +1103,9 @@ class FastestDet:
                         "obj": epoch_distill_obj * inv,
                         "box": epoch_distill_box * inv,
                         "cls": epoch_distill_cls * inv,
+                        "weight": distill_weight,
                     }
+                    self.writer.add_scalar("train/109_distill_weight", distill_metrics["weight"], epoch)
                     self.writer.add_scalar("train/110_loss_distill_total", distill_metrics["total"], epoch)
                     self.writer.add_scalar("train/111_loss_distill_obj", distill_metrics["obj"], epoch)
                     self.writer.add_scalar("train/112_loss_distill_box", distill_metrics["box"], epoch)

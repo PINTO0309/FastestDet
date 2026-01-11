@@ -69,7 +69,7 @@ class Detector(nn.Module):
          
         self.detect_head = DetectHead(self.stage_out_channels[-2], category_num)
 
-    def forward(self, x):
+    def forward(self, x, return_logits=False):
         P1, P2, P3 = self.backbone(x)
         if len(self.pyramid_levels) > 1:
             if "P1" in self.pyramid_levels:
@@ -89,6 +89,8 @@ class Detector(nn.Module):
         elif self.ese is not None:
             y = self.ese(y)
 
+        if return_logits:
+            return self.detect_head(y, return_logits=True)
         return self.detect_head(y)
 
 if __name__ == "__main__":
