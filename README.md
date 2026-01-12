@@ -212,7 +212,7 @@ uv run python test.py \
   ##########################################################
 
   uv run python train.py \
-  --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -222,7 +222,8 @@ uv run python test.py \
   --stage-repeats 1.00 \
   --use-skip-residual \
   --use-amp \
-  --pyramid-levels P1
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
 
   uv run python train.py \
   --exp-name exp_x1_25_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
