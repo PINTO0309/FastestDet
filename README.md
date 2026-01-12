@@ -6,7 +6,7 @@ Various improvements have been made to make FastestDet even lighter and faster.
 3. EMA
 4. Distillation
 5. Resume
-6. Toggle pyramid-levels: `P1 only`, `P2 only`, `P3 only`, `P1 + P2`, `P1 + P3`, `P2 + P3`, `P1 + P2 + P3`
+6. Toggle pyramid-levels: `P1 only`, `P2 only`, `P3 only`, `P1 + P2`, `P1 + P3`, `P2 + P3`, `P1 + P2 + P3`. For very low resolution models, including P2 and P3 in the architecture significantly reduces accuracy.
 7. Backbone ShuffleNetv2 improvements: `Shuffle-free shufflenet`
 8. SE (Squeeze-and-Excitation) block/eSE (efficient Squeeze-and-Excitation) block
 9. Skip-Residual block
