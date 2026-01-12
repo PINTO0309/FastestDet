@@ -359,6 +359,28 @@ uv run python test.py \
   
   </details>
 
+  <details><summary>Click to expand</summary>
+
+  ```bash
+  uv run python train.py \
+  --exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls_distill \
+  --weight runs/exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls/best_0183_0.188746.pth \
+  --yaml configs/uhd09ft.yaml \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size 64x64 \
+  --opencv_inter_nearest \
+  --stage-out-channels 30.00 \
+  --stage-repeats 1.50 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --teacher-weight runs/exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls/best_0183_0.188746.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  ```
+
+  <details>
+
 ### Evaluation
 * Calculate map evaluation
   ```bash
