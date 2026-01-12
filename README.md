@@ -382,6 +382,7 @@ uv run python test.py \
   --stage-repeats 1.25 \
   --use-skip-residual \
   --pyramid-levels P1 \
+  --multi-label-robust-mode \
   --teacher-weight runs/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0289_0.317687.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.5
