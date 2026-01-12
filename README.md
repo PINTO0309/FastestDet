@@ -331,17 +331,18 @@ uv run python test.py \
   --pyramid-levels P1
 
   uv run python train.py \
-  --exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x30_00_x1_25_64x64_lr0.00100_skipred_noema_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.00100 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
   --stage-out-channels 30.00 \
-  --stage-repeats 1.50 \
+  --stage-repeats 1.25 \
   --use-skip-residual \
   --use-amp \
-  --pyramid-levels P1
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
 
   ##########################################################
 
