@@ -243,7 +243,11 @@ class FastestDet:
         self.val_interval = max(1, int(opt.val_interval))
         self.render_priority_rules = self._normalize_render_priority_rules(self.cfg.render_priority_rules)
         self.render_label_ids = self._normalize_render_label_ids(self.cfg.render_label_ids)
-        self.render_score_ids = self._normalize_render_label_ids(self.cfg.render_score_ids)
+        score_ids_defined = self._render_key_defined("SCORE_IDS")
+        if score_ids_defined:
+            self.render_score_ids = self._normalize_render_score_ids(self.cfg.render_score_ids)
+        else:
+            self.render_score_ids = None
         self.resize_mode = opt.resize_mode
         self.aug_yaml = opt.aug_yaml if opt.aug_yaml else None
         self.input_channels = resize_output_channels(self.resize_mode)
@@ -949,6 +953,36 @@ class FastestDet:
         if isinstance(label_ids, str) and not label_ids.strip():
             return set()
         ids = parse_classes(label_ids)
+        if not ids:
+            return set()
+        class_map = None
+        if self.cfg.classes is not None:
+            class_map = {int(cid): idx for idx, cid in enumerate(self.cfg.classes)}
+        normalized = set()
+        for cid in ids:
+            try:
+                cid = int(cid)
+            except (TypeError, ValueError):
+                continue
+            if class_map is not None:
+                if cid not in class_map:
+                    continue
+                cid = class_map[cid]
+            normalized.add(cid)
+        return normalized
+
+    def _render_key_defined(self, key):
+        if not isinstance(self.yaml_params, dict):
+            return False
+        render_cfg = self.yaml_params.get("RENDER")
+        return isinstance(render_cfg, dict) and key in render_cfg
+
+    def _normalize_render_score_ids(self, score_ids):
+        if score_ids is None:
+            return set()
+        if isinstance(score_ids, str) and not score_ids.strip():
+            return set()
+        ids = parse_classes(score_ids)
         if not ids:
             return set()
         class_map = None
