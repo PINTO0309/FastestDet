@@ -220,7 +220,7 @@ uv run python test.py \
   ##########################################################
 
   uv run python train.py \
-  --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls_mlrm \
+  --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -233,7 +233,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x1_25_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x1_25_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -246,7 +246,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x1_50_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x1_50_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -259,7 +259,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x1_75_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x1_75_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -272,7 +272,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x2_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x2_00_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.00100 \
   --epoch 300 \
@@ -285,7 +285,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x2_25_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x2_25_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -298,7 +298,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x2_50_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x2_50_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -311,7 +311,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x2_75_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x2_75_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -324,7 +324,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x3_00_x1_00_64x64_lr0.00100_skipred_noema_P1_09cls \
+  --exp-name exp_x3_00_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -337,7 +337,7 @@ uv run python test.py \
   --multi-label-robust-mode
 
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_P1_09cls_mlrm \
+  --exp-name exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.00100 \
   --epoch 300 \
