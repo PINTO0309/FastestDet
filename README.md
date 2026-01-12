@@ -13,6 +13,13 @@ Various improvements have been made to make FastestDet even lighter and faster.
 10. Free expansion of the number of channels by `--stage-out-channels`
 11. Freely expansion of the number of stages by `--stage-repeats`
 12. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
+13. Params and FLOPs Profiler: `profile_onnx.py`
+    ```bash
+    uv run python profile_onnx.py model.onnx
+    
+    Params: 72,861 (72.861 Kparams)
+    FLOPs:  10,908,672 (0.011 GFLOPs)
+    ```
 
 ---
 
