@@ -45,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
     parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.125 step)')
     parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
+    parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust inference')
     parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
     se_group = parser.add_mutually_exclusive_group()
     se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
@@ -73,6 +74,7 @@ if __name__ == '__main__':
         use_skip_residual=opt.use_skip_residual,
         use_ese=opt.use_ese,
         use_se=opt.use_se,
+        multi_label=opt.multi_label_robust_mode,
         pyramid_levels=pyramid_levels,
     ).to(device)
     model.load_state_dict(torch.load(opt.weight))
@@ -99,4 +101,4 @@ if __name__ == '__main__':
 
     # Model evaluation
     print("compute mAP...")
-    evaluation.compute_map(val_dataloader, model)
+    evaluation.compute_map(val_dataloader, model, multi_label=opt.multi_label_robust_mode)

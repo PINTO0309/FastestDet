@@ -1058,7 +1058,7 @@ class FastestDet:
             input_tensor = self._prepare_infer_input(img)
             with torch.no_grad():
                 preds = self.model(input_tensor)
-                output = handle_preds(preds, device)
+                output = handle_preds(preds, device, multi_label=self.multi_label_robust_mode)
             if not output:
                 continue
             boxes = output[0].cpu().numpy() if output[0].numel() else []
@@ -1228,7 +1228,11 @@ class FastestDet:
                 print("compute mAP...")
                 if self.use_ema and self.ema is not None:
                     self.ema.apply_shadow()
-                mAP05 = self.evaluation.compute_map(self.val_dataloader, self.model)
+                mAP05 = self.evaluation.compute_map(
+                    self.val_dataloader,
+                    self.model,
+                    multi_label=self.multi_label_robust_mode,
+                )
                 self.latest_map05 = mAP05
                 val_map05 = mAP05
                 self.writer.add_scalar("val/010_mAP50", mAP05, epoch)

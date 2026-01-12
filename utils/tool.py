@@ -132,7 +132,7 @@ class EMA():
         self.backup = {}
 
 # Post-processing (normalized coordinates)
-def handle_preds(preds: torch.Tensor, device, conf_thresh=0.25, nms_thresh=0.45):
+def handle_preds(preds: torch.Tensor, device, conf_thresh=0.25, nms_thresh=0.45, multi_label=False):
     total_bboxes, output_bboxes  = [], []
     # Convert feature map to bounding box coordinates
     N, C, H, W = preds.shape
@@ -145,10 +145,6 @@ def handle_preds(preds: torch.Tensor, device, conf_thresh=0.25, nms_thresh=0.45)
     # Class prediction branch
     pcls = pred[:, :, :, 5:]
 
-    # Bounding box confidence
-    bboxes[..., 4] = (pobj.squeeze(-1) ** 0.6) * (pcls.max(dim=-1)[0] ** 0.4)
-    bboxes[..., 5] = pcls.argmax(dim=-1)
-
     # Bounding box coordinates
     gy, gx = torch.meshgrid([torch.arange(H), torch.arange(W)], indexing="ij")
     bw, bh = preg[..., 2].sigmoid(), preg[..., 3].sigmoid()
@@ -159,9 +155,38 @@ def handle_preds(preds: torch.Tensor, device, conf_thresh=0.25, nms_thresh=0.45)
     x1, y1 = bcx - 0.5 * bw, bcy - 0.5 * bh
     x2, y2 = bcx + 0.5 * bw, bcy + 0.5 * bh
 
-    bboxes[..., 0], bboxes[..., 1] = x1, y1
-    bboxes[..., 2], bboxes[..., 3] = x2, y2
-    bboxes = bboxes.reshape(N, H*W, 6)
+    coords = torch.stack((x1, y1, x2, y2), dim=-1)
+
+    if multi_label:
+        conf = (pobj ** 0.6) * (pcls ** 0.4)
+        conf = conf.reshape(N, H * W, -1)
+        coords = coords.reshape(N, H * W, 4)
+        for conf_map, box_map in zip(conf, coords):
+            idx, cls = torch.where(conf_map > conf_thresh)
+            if idx.numel() == 0:
+                output_bboxes.append(torch.zeros((0, 6)))
+                continue
+            scores = conf_map[idx, cls].float()
+            boxes = box_map[idx].float()
+            keep = torchvision.ops.batched_nms(boxes, scores, cls, nms_thresh)
+            out = torch.cat(
+                (
+                    boxes[keep],
+                    scores[keep].unsqueeze(1),
+                    cls[keep].unsqueeze(1).to(scores.dtype),
+                ),
+                dim=1,
+            )
+            output_bboxes.append(out.detach().cpu())
+        return output_bboxes
+
+    # Bounding box confidence
+    bboxes[..., 4] = (pobj.squeeze(-1) ** 0.6) * (pcls.max(dim=-1)[0] ** 0.4)
+    bboxes[..., 5] = pcls.argmax(dim=-1)
+
+    bboxes[..., 0], bboxes[..., 1] = coords[..., 0], coords[..., 1]
+    bboxes[..., 2], bboxes[..., 3] = coords[..., 2], coords[..., 3]
+    bboxes = bboxes.reshape(N, H * W, 6)
     total_bboxes.append(bboxes)
 
     batch_bboxes = torch.cat(total_bboxes, 1)

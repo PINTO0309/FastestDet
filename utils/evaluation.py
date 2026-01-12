@@ -112,7 +112,7 @@ class CocoDetectionEvaluator():
         print(top)
         self.last_per_class_ap = results
 
-    def compute_map(self, val_dataloader, model):
+    def compute_map(self, val_dataloader, model, multi_label=False):
         gts, pts = [], []
         input_is_normalized = getattr(val_dataloader.dataset, "input_is_normalized", False)
         pbar = tqdm(val_dataloader)
@@ -125,7 +125,7 @@ class CocoDetectionEvaluator():
                 # Model prediction
                 preds = model(imgs)
                 # Feature map post-processing
-                output = handle_preds(preds, self.device, 0.001)
+                output = handle_preds(preds, self.device, 0.001, multi_label=multi_label)
 
             # Detection results
             N, _, H, W = imgs.shape
