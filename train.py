@@ -1122,13 +1122,15 @@ class FastestDet:
                 if label_allowed:
                     label = self.label_names[cls_id] if cls_id < len(self.label_names) else str(cls_id)
                 color = self._color_for_class(cls_id)
-                cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+                cv2.rectangle(img, (x1, y1), (x2, y2), (255,255,255), 2)
+                cv2.rectangle(img, (x1, y1), (x2, y2), color, 1)
                 if label:
                     show_score = True
                     if self.render_score_ids is not None:
                         show_score = cls_id in self.render_score_ids
                     text = f"{label}:{score:.2f}" if show_score else label
-                    cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, color, 2)
+                    cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, (255,255,255), 2)
+                    cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, color, 1)
             save_path = os.path.join(out_dir, os.path.basename(path))
             cv2.imwrite(save_path, img)
 
