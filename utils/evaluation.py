@@ -116,6 +116,7 @@ class CocoDetectionEvaluator():
         gts, pts = [], []
         input_is_normalized = getattr(val_dataloader.dataset, "input_is_normalized", False)
         pbar = tqdm(val_dataloader)
+        imgs: torch.Tensor
         for i, (imgs, targets) in enumerate(pbar):
             # Data preprocessing
             imgs = imgs.to(self.device).float()
@@ -128,6 +129,7 @@ class CocoDetectionEvaluator():
                 output = handle_preds(preds, self.device, 0.001, multi_label=multi_label)
 
             # Detection results
+            b: torch.Tensor
             N, _, H, W = imgs.shape
             for p in output:
                 pbboxes = []
@@ -140,6 +142,7 @@ class CocoDetectionEvaluator():
                 pts.append(np.array(pbboxes))
 
             # Ground truth
+            t: torch.Tensor
             for n in range(N):
                 tbboxes = []
                 for t in targets:

@@ -53,7 +53,7 @@ class LoadYaml:
         self.render_priority_rules = render_cfg.get("PRIORITY_RULES")
         self.render_label_ids = render_cfg.get("LABEL_IDS")
         self.render_score_ids = render_cfg.get("SCORE_IDS")
-        
+
         print("Load yaml sucess...")
 
     def __repr__(self):
@@ -99,7 +99,7 @@ class LoadYaml:
         self.category_num = self._resolve_category_num({"MODEL": {"NC": None}})
 
 class EMA():
-    def __init__(self, model, decay):
+    def __init__(self, model: torch.nn.Module, decay):
         self.model = model
         self.decay = decay
         self.shadow = {}

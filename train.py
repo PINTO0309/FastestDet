@@ -464,28 +464,30 @@ class FastestDet:
         # Validation set
         self.data_gen = torch.Generator()
         self.data_gen.manual_seed(SEED)
-        self.val_dataloader = torch.utils.data.DataLoader(val_dataset,
-                                                          batch_size=self.cfg.batch_size,
-                                                          shuffle=False,
-                                                          collate_fn=collate_fn,
-                                                          num_workers=12,
-                                                          drop_last=False,
-                                                          persistent_workers=True,
-                                                          worker_init_fn=seed_worker,
-                                                          generator=self.data_gen,
-                                                          pin_memory=True,
-                                                          )
+        self.val_dataloader = torch.utils.data.DataLoader(
+            val_dataset,
+            batch_size=self.cfg.batch_size,
+            shuffle=False,
+            collate_fn=collate_fn,
+            num_workers=12,
+            drop_last=False,
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
+            generator=self.data_gen,
+            pin_memory=True,
+        )
         # Training set
-        self.train_dataloader = torch.utils.data.DataLoader(train_dataset,
-                                                            batch_size=self.cfg.batch_size,
-                                                            shuffle=True,
-                                                            collate_fn=collate_fn,
-                                                            num_workers=12,
-                                                            persistent_workers=True,
-                                                            worker_init_fn=seed_worker,
-                                                            generator=self.data_gen,
-                                                            pin_memory=True,
-                                                            )
+        self.train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=self.cfg.batch_size,
+            shuffle=True,
+            collate_fn=collate_fn,
+            num_workers=12,
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
+            generator=self.data_gen,
+            pin_memory=True,
+        )
         if opt.resume is not None:
             self._load_checkpoint(opt.resume)
 
