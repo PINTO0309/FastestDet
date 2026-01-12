@@ -49,7 +49,7 @@ class ShuffleV2Block(nn.Module):
         if self.stride==1:
             x_proj, x = self.channel_shuffle(old_x)
             out = torch.cat((x_proj, self.branch_main(x)), 1)
-            if self.use_residual and out.shape == old_x.shape:
+            if self.use_residual:
                 out = out + old_x
             return out
         elif self.stride==2:

@@ -101,7 +101,7 @@ class DetectHead(nn.Module):
             cls = self.softmax(cls_logits)
 
         output = torch.cat((obj, reg, cls), dim=1)
-        if return_logits:
+        if return_logits is True:
             return output, cls_logits
         return output
 

@@ -90,7 +90,7 @@ class Detector(nn.Module):
         elif self.ese is not None:
             y = self.ese(y)
 
-        if return_logits:
+        if return_logits is True:
             return self.detect_head(y, return_logits=True)
         return self.detect_head(y)
 
