@@ -8,7 +8,7 @@ class Conv1x1(nn.Module):
                                       nn.BatchNorm2d(output_channels),
                                       nn.ReLU(inplace=True)
                                      )
-    
+
     def forward(self, x):
         return self.conv1x1(x)
 
@@ -21,8 +21,8 @@ class Head(nn.Module):
 
                                      nn.Conv2d(input_channels, output_channels, 1, stride=1, padding=0, bias=False),
                                      nn.BatchNorm2d(output_channels)
-                                    ) 
-    
+                                    )
+
     def forward(self, x):
         return self.conv5x5(x)
 
@@ -61,10 +61,10 @@ class SPP(nn.Module):
         self.output = nn.Sequential(nn.Conv2d(output_channels * 3, output_channels, 1, 1, 0, bias = False),
                                     nn.BatchNorm2d(output_channels),
                                    )
-                                   
+
         self.relu = nn.ReLU(inplace=True)
 
-    def forward(self, x):    
+    def forward(self, x):
         x = self.Conv1x1(x)
 
         y1 = self.S1(x)
@@ -77,7 +77,7 @@ class SPP(nn.Module):
         return y
 
 class DetectHead(nn.Module):
-    def __init__(self, input_channels, category_num):
+    def __init__(self, input_channels, category_num, multi_label=False):
         super(DetectHead, self).__init__()
         self.conv1x1 =  Conv1x1(input_channels, input_channels)
 
@@ -87,14 +87,18 @@ class DetectHead(nn.Module):
 
         self.sigmoid = nn.Sigmoid()
         self.softmax = nn.Softmax(dim=1)
-        
+        self.multi_label = multi_label
+
     def forward(self, x, return_logits=False):
         x = self.conv1x1(x)
 
         obj = self.sigmoid(self.obj_layers(x))
         reg = self.reg_layers(x)
         cls_logits = self.cls_layers(x)
-        cls = self.softmax(cls_logits)
+        if self.multi_label:
+            cls = self.sigmoid(cls_logits)
+        else:
+            cls = self.softmax(cls_logits)
 
         output = torch.cat((obj, reg, cls), dim=1)
         if return_logits:

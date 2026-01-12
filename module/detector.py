@@ -40,6 +40,7 @@ class Detector(nn.Module):
         use_skip_residual=False,
         use_ese=False,
         use_se=False,
+        multi_label=False,
         pyramid_levels=None,
     ):
         super(Detector, self).__init__()
@@ -66,8 +67,8 @@ class Detector(nn.Module):
         self.SPP = SPP(spp_in_channels, self.stage_out_channels[-2])
         self.ese = ESE(self.stage_out_channels[-2]) if use_ese else None
         self.se = SE(self.stage_out_channels[-2]) if use_se else None
-         
-        self.detect_head = DetectHead(self.stage_out_channels[-2], category_num)
+
+        self.detect_head = DetectHead(self.stage_out_channels[-2], category_num, multi_label=multi_label)
 
     def forward(self, x, return_logits=False):
         P1, P2, P3 = self.backbone(x)

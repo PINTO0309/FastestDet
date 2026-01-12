@@ -12,6 +12,7 @@ Various improvements have been made to make FastestDet even lighter and faster.
 9. Skip-Residual block
 10. Free expansion of the number of channels by `--stage-out-channels`
 11. Freely expansion of the number of stages by `--stage-repeats`
+12. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
 
 ---
 
@@ -194,7 +195,7 @@ uv run python test.py \
   ```
 
   <details><summary>Click to expand</summary>
-  
+
   ```bash
   uv run python train.py \
   --exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_02cls \
@@ -357,7 +358,7 @@ uv run python test.py \
   --use-amp \
   --pyramid-levels P1
   ```
-  
+
   </details>
 
   <details><summary>Click to expand</summary>

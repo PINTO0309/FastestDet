@@ -128,6 +128,7 @@ class FastestDet:
         parser.add_argument('--use-ema', action='store_true', default=False, help='enable EMA for model weights')
         parser.add_argument('--ema-decay', type=float, default=0.9998, help='EMA decay rate')
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
+        parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
         se_group = parser.add_mutually_exclusive_group()
         se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
@@ -266,6 +267,7 @@ class FastestDet:
         self.ema = None
         self.use_amp = opt.use_amp and torch.cuda.is_available()
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        self.multi_label_robust_mode = opt.multi_label_robust_mode
         self.use_skip_residual = opt.use_skip_residual
         self.use_se = opt.use_se
         self.use_ese = opt.use_ese
@@ -289,6 +291,7 @@ class FastestDet:
                 use_skip_residual=self.use_skip_residual,
                 use_ese=self.use_ese,
                 use_se=self.use_se,
+                multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
             ).to(device)
             weight_data = torch.load(opt.weight, map_location=device)
@@ -309,6 +312,7 @@ class FastestDet:
                 use_skip_residual=self.use_skip_residual,
                 use_ese=self.use_ese,
                 use_se=self.use_se,
+                multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
             ).to(device)
 
@@ -380,6 +384,7 @@ class FastestDet:
                 use_skip_residual=teacher_use_skip,
                 use_ese=teacher_use_ese,
                 use_se=teacher_use_se,
+                multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
             ).to(device)
             self.teacher_model.load_state_dict(teacher_state)
@@ -427,7 +432,7 @@ class FastestDet:
                                                             gamma=gamma)
 
         # Define loss
-        self.loss_function = DetectorLoss(device)
+        self.loss_function = DetectorLoss(device, multi_label=self.multi_label_robust_mode)
 
         # Define evaluation
         self.evaluation = CocoDetectionEvaluator(self.cfg.names, device)
@@ -815,6 +820,7 @@ class FastestDet:
                 use_skip_residual=self.teacher_use_skip_residual,
                 use_se=self.teacher_use_se,
                 use_ese=self.teacher_use_ese,
+                multi_label=self.multi_label_robust_mode,
                 pyramid_levels=teacher_pyramid_levels,
             ).to(device)
             self.teacher_model.eval()
@@ -1094,15 +1100,23 @@ class FastestDet:
         tcls = teacher[..., 5:]
         obj_loss = F.mse_loss(pobj, tobj)
         box_loss = F.smooth_l1_loss(preg, treg)
-        if student_logits is not None and teacher_logits is not None:
-            slogits = student_logits.permute(0, 2, 3, 1)
-            tlogits = teacher_logits.permute(0, 2, 3, 1)
-            temp = self.distill_temp
-            s_log_prob = F.log_softmax(slogits / temp, dim=-1)
-            t_prob = F.softmax(tlogits / temp, dim=-1)
-            cls_loss = F.kl_div(s_log_prob, t_prob, reduction="batchmean") * (temp * temp)
+        if self.multi_label_robust_mode:
+            if student_logits is not None and teacher_logits is not None:
+                slogits = student_logits.permute(0, 2, 3, 1)
+                tlogits = teacher_logits.permute(0, 2, 3, 1)
+                cls_loss = F.binary_cross_entropy_with_logits(slogits, torch.sigmoid(tlogits))
+            else:
+                cls_loss = F.binary_cross_entropy(pcls, tcls)
         else:
-            cls_loss = F.kl_div(torch.log(pcls + 1e-9), tcls, reduction="batchmean")
+            if student_logits is not None and teacher_logits is not None:
+                slogits = student_logits.permute(0, 2, 3, 1)
+                tlogits = teacher_logits.permute(0, 2, 3, 1)
+                temp = self.distill_temp
+                s_log_prob = F.log_softmax(slogits / temp, dim=-1)
+                t_prob = F.softmax(tlogits / temp, dim=-1)
+                cls_loss = F.kl_div(s_log_prob, t_prob, reduction="batchmean") * (temp * temp)
+            else:
+                cls_loss = F.kl_div(torch.log(pcls + 1e-9), tcls, reduction="batchmean")
         total = obj_loss + box_loss + cls_loss
         return obj_loss, box_loss, cls_loss, total
 
@@ -1154,13 +1168,14 @@ class FastestDet:
                 # Model forward
                 with torch.cuda.amp.autocast(enabled=self.use_amp):
                     student_logits = None
-                    if self.teacher_model is not None:
+                    use_logits = self.teacher_model is not None or self.multi_label_robust_mode
+                    if use_logits:
                         preds, student_logits = self.model(imgs, return_logits=True)
                     else:
                         preds = self.model(imgs)
 
                     # Loss calculation
-                    iou, obj, cls, total = self.loss_function(preds, targets)
+                    iou, obj, cls, total = self.loss_function(preds, targets, cls_logits=student_logits)
                     distill_obj = distill_box = distill_cls = distill_total = None
                     if self.teacher_model is not None:
                         with torch.no_grad():

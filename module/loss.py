@@ -1,11 +1,13 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class DetectorLoss(nn.Module):
-    def __init__(self, device):    
+    def __init__(self, device, multi_label=False):
         super(DetectorLoss, self).__init__()
         self.device = device
+        self.multi_label = multi_label
 
     def bbox_iou(self, box1, box2, eps=1e-7):
         # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
@@ -49,13 +51,13 @@ class DetectorLoss(nn.Module):
         iou = iou - 0.5 * (distance_cost + shape_cost)
 
         return iou
-        
+
     def build_target(self, preds, targets):
         N, C, H, W = preds.shape
         # Ground truth present in the batch
         gt_box, gt_cls, ps_index = [], [], []
         # Offsets for assigning center points to neighboring grid cells
-        quadrant = torch.tensor([[0, 0], [1, 0], 
+        quadrant = torch.tensor([[0, 0], [1, 0],
                                  [0, 1], [1, 1]], device=self.device)
 
         if targets.shape[0] > 0:
@@ -70,7 +72,7 @@ class DetectorLoss(nn.Module):
             # Filter out-of-bounds coordinates
             quadrant = quadrant.repeat(gt.size(1), 1, 1).permute(1, 0, 2)
             gij = gt[..., 2:4].long() + quadrant
-            j = torch.where(gij < H, gij, 0).min(dim=-1)[0] > 0 
+            j = torch.where(gij < H, gij, 0).min(dim=-1)[0] > 0
 
             # Foreground indices
             gi, gj = gij[j].T
@@ -80,14 +82,14 @@ class DetectorLoss(nn.Module):
             # Foreground boxes
             gbox = gt[..., 2:][j]
             gt_box.append(gbox)
-            
+
             # Foreground classes
             gt_cls.append(gt[..., 1].long()[j])
 
         return gt_box, gt_cls, ps_index
 
-        
-    def forward(self, preds, targets):
+
+    def forward(self, preds, targets, cls_logits=None):
         # Initialize loss values
         device = preds.device
         cls_loss = torch.zeros(1, device=device)
@@ -95,10 +97,10 @@ class DetectorLoss(nn.Module):
         obj_loss = torch.zeros(1, device=device)
 
         # Define objectness and class losses
-        BCEcls = nn.NLLLoss() 
+        BCEcls = nn.NLLLoss()
         # Smooth L1 works best compared to BCE here
         BCEobj = nn.SmoothL1Loss(reduction='none')
-        
+
         # Build ground truth
         gt_box, gt_cls, ps_index = self.build_target(preds, targets)
 
@@ -111,7 +113,7 @@ class DetectorLoss(nn.Module):
         pcls = pred[:, :, :, 5:]
 
         N, H, W, C = pred.shape
-        tobj = torch.zeros_like(pobj) 
+        tobj = torch.zeros_like(pobj)
         factor = torch.ones_like(pobj) * 0.75
 
         if len(gt_box) > 0:
@@ -126,27 +128,48 @@ class DetectorLoss(nn.Module):
             # Compute IoU loss
             iou = self.bbox_iou(ptbox, gt_box[0])
             # Filter
-            f = iou > iou.mean()
+            if self.multi_label:
+                f = iou >= iou.mean()
+            else:
+                f = iou > iou.mean()
+            if not f.any():
+                f = iou == iou.max()
             b, gy, gx = b[f], gy[f], gx[f]
 
             # Compute IoU loss
             iou = iou[f]
-            iou_loss =  (1.0 - iou).mean() 
+            iou_loss =  (1.0 - iou).mean()
 
             # Compute class loss
-            ps = torch.log(pcls[b, gy, gx])
-            cls_loss = BCEcls(ps, gt_cls[0][f])
+            if self.multi_label:
+                if cls_logits is None:
+                    raise ValueError("cls_logits must be provided when multi_label=True.")
+                pos_index = torch.stack((b, gy, gx), dim=1)
+                unique_index, inverse = torch.unique(pos_index, dim=0, return_inverse=True)
+                num_classes = cls_logits.shape[1]
+                cls_target = torch.zeros((unique_index.size(0), num_classes), device=device)
+                cls_ids = gt_cls[0][f]
+                ones = torch.ones_like(cls_ids, dtype=cls_target.dtype)
+                cls_target.index_put_((inverse, cls_ids), ones, accumulate=True)
+                cls_target.clamp_(0, 1)
+                ub, ugy, ugx = unique_index[:, 0], unique_index[:, 1], unique_index[:, 2]
+                logits = cls_logits[ub, :, ugy, ugx]
+                cls_loss = F.binary_cross_entropy_with_logits(logits, cls_target)
+            else:
+                ps = torch.log(pcls[b, gy, gx])
+                cls_loss = BCEcls(ps, gt_cls[0][f])
 
             # iou aware
-            tobj[b, gy, gx] = iou.float()
+            tobj[b, gy, gx] = iou.to(tobj.dtype)
             # Count positive samples per image
             n = torch.bincount(b)
-            factor[b, gy, gx] =  (1. / (n[b] / (H * W))) * 0.25
+            factor_value = (1. / (n[b] / (H * W))) * 0.25
+            factor[b, gy, gx] = factor_value.to(factor.dtype)
 
         # Compute objectness loss
         obj_loss = (BCEobj(pobj, tobj) * factor).mean()
 
         # Compute total loss
-        loss = (iou_loss * 8) + (obj_loss * 16) + cls_loss                      
-              
+        loss = (iou_loss * 8) + (obj_loss * 16) + cls_loss
+
         return iou_loss, obj_loss, cls_loss, loss
