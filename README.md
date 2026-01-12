@@ -352,14 +352,14 @@ uv run python test.py \
   ##########################################################
 
   uv run python train.py \
-  --exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_10cls \
+  --exp-name exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_10cls_mlrm \
   --yaml configs/uhd10.yaml \
   --lr 0.00100 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
-  --stage-out-channels 30.00 \
-  --stage-repeats 1.50 \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
   --use-skip-residual \
   --pyramid-levels P1 \
   --multi-label-robust-mode
@@ -371,8 +371,8 @@ uv run python test.py \
 
   ```bash
   uv run python train.py \
-  --exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls_distill \
-  --weight runs/exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls/best_0183_0.188746.pth \
+  --exp-name exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --weight runs/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls/best_0183_0.188746.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.00010 \
   --epoch 100 \
@@ -382,7 +382,7 @@ uv run python test.py \
   --stage-repeats 1.50 \
   --use-skip-residual \
   --pyramid-levels P1 \
-  --teacher-weight runs/exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_09cls/best_0183_0.188746.pth \
+  --teacher-weight runs/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls/best_0183_0.188746.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.5
   ```
