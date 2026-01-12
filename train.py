@@ -291,7 +291,14 @@ class FastestDet:
                 use_se=self.use_se,
                 pyramid_levels=self.pyramid_levels,
             ).to(device)
-            self.model.load_state_dict(torch.load(opt.weight, map_location=device))
+            weight_data = torch.load(opt.weight, map_location=device)
+            weight_state = weight_data
+            if isinstance(weight_data, dict):
+                if "model" in weight_data:
+                    weight_state = weight_data["model"]
+                elif "state_dict" in weight_data:
+                    weight_state = weight_data["state_dict"]
+            self.model.load_state_dict(weight_state)
         else:
             self.model = Detector(
                 self.cfg.category_num,
