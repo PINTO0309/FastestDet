@@ -999,25 +999,34 @@ class FastestDet:
                 continue
             child_boxes = boxes[child_idx, :4]
             parent_boxes = boxes[parent_idx, :4]
-            iou_matrix = np.stack([self._bbox_iou_one_to_many(child_box, parent_boxes) for child_box in child_boxes], axis=0)
+            iou_matrix = np.stack(
+                [self._bbox_iou_one_to_many(child_box, parent_boxes) for child_box in child_boxes],
+                axis=0,
+            )
+            best_parent = iou_matrix.argmax(axis=1)
+            best_iou = iou_matrix[np.arange(iou_matrix.shape[0]), best_parent]
             if require_parent_match:
                 for row, idx in enumerate(child_idx):
-                    if iou_matrix[row].max() < thresh:
+                    if best_iou[row] < thresh:
                         keep[idx] = False
-            if use_parent_box:
-                for row, idx in enumerate(child_idx):
-                    if not keep[idx]:
-                        continue
-                    ious = iou_matrix[row]
-                    if ious.max() >= thresh:
-                        parent_match = parent_idx[int(ious.argmax())]
-                        boxes[idx, :4] = boxes[parent_match, :4]
             child_keep_mask = np.array([keep[i] for i in child_idx], dtype=bool)
-            if child_keep_mask.any():
-                active_ious = iou_matrix[child_keep_mask]
+            matched_mask = child_keep_mask & (best_iou >= thresh)
+            if matched_mask.any():
+                child_scores = boxes[child_idx, 4]
                 for col, p_idx in enumerate(parent_idx):
-                    if (active_ious[:, col] >= thresh).any():
-                        keep[p_idx] = False
+                    rows = np.where(matched_mask & (best_parent == col))[0]
+                    if rows.size == 0:
+                        continue
+                    if rows.size > 1:
+                        best_row = rows[np.argmax(child_scores[rows])]
+                        drop_rows = rows[rows != best_row]
+                        for row in drop_rows:
+                            keep[child_idx[row]] = False
+                    else:
+                        best_row = rows[0]
+                    if use_parent_box:
+                        boxes[child_idx[best_row], :4] = boxes[p_idx, :4]
+                    keep[p_idx] = False
         return boxes[keep]
 
     def _prepare_infer_input(self, img_bgr):
