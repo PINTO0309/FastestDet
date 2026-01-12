@@ -378,8 +378,8 @@ uv run python test.py \
   --epoch 100 \
   --img-size 64x64 \
   --opencv_inter_nearest \
-  --stage-out-channels 30.00 \
-  --stage-repeats 1.50 \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
   --use-skip-residual \
   --pyramid-levels P1 \
   --teacher-weight runs/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls/best_0183_0.188746.pth \
