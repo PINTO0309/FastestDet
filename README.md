@@ -1,6 +1,11 @@
 # FastestDetNext
 Various improvements have been made to make FastestDet even lighter and faster.
 # This fork `custom` branch aims to improve the official implementation. A huge thank you to the authors of FastestDet.
+
+|Inference image<br>96x96|→|Original image<br>640x425|
+|:-:|:-:|:-:|
+|<img width="96" height="96" alt="image" src="https://github.com/user-attachments/assets/99f2d9cf-cde9-4a51-962d-86e6b591ba93" />|→|<img width="640" height="425" alt="image" src="https://github.com/user-attachments/assets/24881eea-c940-4530-a5ca-5c53d36785af" />|
+
 1. Optimizer: SGD/AdamW
 2. Scheduler: Step/Cosine
 3. EMA
@@ -21,8 +26,6 @@ Various improvements have been made to make FastestDet even lighter and faster.
     FLOPs:  10,908,672 (0.011 GFLOPs)
     ```
 14. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
-
-<img width="640" height="425" alt="image" src="https://github.com/user-attachments/assets/24881eea-c940-4530-a5ca-5c53d36785af" />
 
 ---
 
