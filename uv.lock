@@ -364,6 +364,22 @@ wheels = [
 ]
 
 [[package]]
+name = "faster-coco-eval"
+version = "1.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d6/ce/8f754b094e38e3d4f7edccbe186aeb7bc0d1ecf3324aa9c796432e0a90e5/faster_coco_eval-1.7.1.tar.gz", hash = "sha256:23d470688ffdb3956ddf23bb22f401d8eb765d51df8afc156bf0d9cf9e58d8ea", size = 94267, upload-time = "2026-01-07T23:46:39.564Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a8/6d/d85b9e51240598cbb2588c1e996407754c26eadaf00464190bb38b444bb1/faster_coco_eval-1.7.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:4aacb56d00f774e0c20f33d464309d2dbc25d8f52c5c2cd444257bbe6bc10da1", size = 355928, upload-time = "2026-01-07T23:46:07.441Z" },
+    { url = "https://files.pythonhosted.org/packages/13/bf/ee5e460d8090d4d02c6c235dae636ec524f9b73bcabbd359feaf5f615654/faster_coco_eval-1.7.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5773f681481f49c34fff805210451e09cf04c29d7d31b5432a97eb5ec2644314", size = 580810, upload-time = "2026-01-07T23:46:08.782Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/40/8cd31d191b74dd1ecd08210753efcb883cb45c19b30fad9468e0857cd184/faster_coco_eval-1.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:36e0e083729261f5035f8c6687a239e88f6abdc303da25d336f6dbd6c43495f7", size = 579166, upload-time = "2026-01-07T23:46:10.177Z" },
+    { url = "https://files.pythonhosted.org/packages/53/3e/e2f9c5e13643435682a811cf9c4b640945b8c81e5b667723cb5ed9f6df56/faster_coco_eval-1.7.1-cp311-cp311-win_amd64.whl", hash = "sha256:ee8717a03cbd6d4ead929b0fb8d3653a9b5e2713c36f1a74b1732aa907226684", size = 319254, upload-time = "2026-01-07T23:46:11.69Z" },
+    { url = "https://files.pythonhosted.org/packages/62/9d/2fafcf0c742243b7cca1890aea886d7b0a45f9ed41ca2eda9f017f84f698/faster_coco_eval-1.7.1-cp311-cp311-win_arm64.whl", hash = "sha256:8f7786e99804132326e62bbd51e87a66400e2de867d17560e819626f56b0f205", size = 317077, upload-time = "2026-01-07T23:46:14.293Z" },
+]
+
+[[package]]
 name = "fastestdetnext"
 version = "1.0.0"
 source = { virtual = "." }
@@ -372,6 +388,7 @@ dependencies = [
     { name = "bbalg" },
     { name = "datasets" },
     { name = "esp-ppq" },
+    { name = "faster-coco-eval" },
     { name = "huggingface-hub" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -400,6 +417,7 @@ requires-dist = [
     { name = "bbalg", specifier = "==1.0.2" },
     { name = "datasets", specifier = "==4.3.0" },
     { name = "esp-ppq", specifier = "==1.2.3" },
+    { name = "faster-coco-eval", specifier = "==1.7.1" },
     { name = "huggingface-hub", specifier = "==1.0.1" },
     { name = "matplotlib", specifier = "==3.10.7" },
     { name = "numpy", specifier = "==1.26.4" },

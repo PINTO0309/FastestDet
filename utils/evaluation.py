@@ -6,8 +6,7 @@ from contextlib import redirect_stdout, redirect_stderr, contextmanager
 from tqdm import tqdm
 from utils.tool import *
 
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
+from faster_coco_eval import COCO, COCOeval_faster
 
 class CocoDetectionEvaluator():
     def __init__(self, names, device):
@@ -70,7 +69,7 @@ class CocoDetectionEvaluator():
         coco_pred.dataset["categories"] = [{"id": i, "supercategory": c, "name": c} for i, c in enumerate(self.classes)]
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             coco_pred.createIndex()
-            coco_eval = COCOeval(coco_gt, coco_pred, "bbox")
+            coco_eval = COCOeval_faster(coco_gt, coco_pred, "bbox")
             coco_eval.evaluate()
             coco_eval.accumulate()
         with self._console_only():
@@ -102,6 +101,7 @@ class CocoDetectionEvaluator():
         print(header)
         print(top)
         results = []
+        name: str
         for k, name in enumerate(self.classes):
             precision = precisions[iou_index, :, k, area_index, maxdet_index]
             precision = precision[precision > -1]
@@ -117,6 +117,7 @@ class CocoDetectionEvaluator():
         input_is_normalized = getattr(val_dataloader.dataset, "input_is_normalized", False)
         pbar = tqdm(val_dataloader)
         imgs: torch.Tensor
+        targets: torch.Tensor
         for i, (imgs, targets) in enumerate(pbar):
             # Data preprocessing
             imgs = imgs.to(self.device).float()
@@ -129,31 +130,35 @@ class CocoDetectionEvaluator():
                 output = handle_preds(preds, self.device, 0.001, multi_label=multi_label)
 
             # Detection results
-            b: torch.Tensor
             N, _, H, W = imgs.shape
+            scale = np.array([W, H, W, H], dtype=np.float32)
+            p: torch.Tensor
             for p in output:
-                pbboxes = []
-                for b in p:
-                    b = b.cpu().numpy()
-                    score = b[4]
-                    category = b[5]
-                    x1, y1, x2, y2 = b[:4] * [W, H, W, H]
-                    pbboxes.append([category, score, x1, y1, x2, y2])
-                pts.append(np.array(pbboxes))
+                if p.numel() == 0:
+                    pts.append(np.zeros((0, 6), dtype=np.float32))
+                    continue
+                p_np = p.cpu().numpy()
+                coords = p_np[:, :4] * scale
+                pbboxes = np.concatenate((p_np[:, 5:6], p_np[:, 4:5], coords), axis=1)
+                pts.append(pbboxes)
 
             # Ground truth
-            t: torch.Tensor
+            t_np = targets.cpu().numpy()
             for n in range(N):
-                tbboxes = []
-                for t in targets:
-                    if t[0] == n:
-                        t = t.cpu().numpy()
-                        category = t[1]
-                        bcx, bcy, bw, bh = t[2:] * [W, H, W, H]
-                        x1, y1 = bcx - 0.5 * bw, bcy - 0.5 * bh
-                        x2, y2 = bcx + 0.5 * bw, bcy + 0.5 * bh
-                        tbboxes.append([category, x1, y1, x2, y2])
-                gts.append(np.array(tbboxes))
+                tn = t_np[t_np[:, 0] == n]
+                if tn.size == 0:
+                    gts.append(np.zeros((0, 5), dtype=np.float32))
+                    continue
+                bcx = tn[:, 2] * W
+                bcy = tn[:, 3] * H
+                bw = tn[:, 4] * W
+                bh = tn[:, 5] * H
+                x1 = bcx - 0.5 * bw
+                y1 = bcy - 0.5 * bh
+                x2 = bcx + 0.5 * bw
+                y2 = bcy + 0.5 * bh
+                tbboxes = np.stack((tn[:, 1], x1, y1, x2, y2), axis=1)
+                gts.append(tbboxes)
 
         mAP05 = self.coco_evaluate(gts, pts)
 

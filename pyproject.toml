@@ -29,6 +29,7 @@ dependencies = [
     "ai-edge-litert==2.1.0",
     "onnx2tf==1.28.8",
     "torchsummary==1.5.1",
+    "faster-coco-eval==1.7.1",
 ]
 [tool.uv]
 override-dependencies = [

@@ -16,10 +16,11 @@ Various improvements have been made to make FastestDet even lighter and faster.
 13. Params and FLOPs Profiler: `profile_onnx.py`
     ```bash
     uv run python profile_onnx.py model.onnx
-    
+
     Params: 72,861 (72.861 Kparams)
     FLOPs:  10,908,672 (0.011 GFLOPs)
     ```
+14. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
 
 ---
 
