@@ -9,12 +9,12 @@ TRAIN:
   LR: 0.00100
   WARMUP: true
   BATCH_SIZE: 64
-  END_EPOCH: 300
+  END_EPOCH: 100
   OPTIMIZER: adamw
   WEIGHT_DECAY: 0.0001
   SCHEDULER: cosine
   MIN_LR: 0.0
-  T_MAX: 300
+  T_MAX: 100
   CLASSES: 0,7,8,9,10,11,12,13,14,15
 RENDER:
   # Only the label names corresponding to the listed class IDs will be drawn.
