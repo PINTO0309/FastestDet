@@ -457,7 +457,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x50_00_x1_25_96x96_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
-  --batch-size 32 \
+  --batch-size 16 \
   --lr 0.00100 \
   --epoch 300 \
   --img-size 96x96 \
