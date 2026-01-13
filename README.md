@@ -454,6 +454,18 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_96x96_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size 96x96 \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
   ##########################################################
 
   uv run python train.py \
