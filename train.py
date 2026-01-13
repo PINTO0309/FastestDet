@@ -548,15 +548,25 @@ class FastestDet:
             except OSError:
                 pass
 
-    def _prune_render_dirs(self, max_keep=10):
-        keep = set(self.best_epochs[-max_keep:])
+    def _prune_render_dirs(self, max_keep_latest=10, max_keep_best=10):
+        epoch_dirs = []
         for name in os.listdir(self.exp_dir):
             if len(name) != 4 or not name.isdigit():
                 continue
-            epoch_num = int(name)
+            epoch_dirs.append(int(name))
+        if not epoch_dirs:
+            return
+        epoch_dirs.sort()
+        if self.is_distilling:
+            keep = set(epoch_dirs[-max_keep_latest:]) if max_keep_latest > 0 else set()
+            if self.best_epochs:
+                keep.add(self.best_epochs[-1])
+        else:
+            keep = set(self.best_epochs[-max_keep_best:]) if max_keep_best > 0 else set()
+        for epoch_num in epoch_dirs:
             if epoch_num in keep:
                 continue
-            dir_path = os.path.join(self.exp_dir, name)
+            dir_path = os.path.join(self.exp_dir, f"{epoch_num:04d}")
             if not os.path.isdir(dir_path):
                 continue
             try:
@@ -1296,13 +1306,10 @@ class FastestDet:
                     best_path = os.path.join(self.exp_dir, best_name)
                     self._save_checkpoint(epoch, best_path)
                     self._prune_best_checkpoints()
-                    if not self.is_distilling:
-                        self._prune_render_dirs()
                 self._render_val_predictions(epoch)
                 if self.use_ema and self.ema is not None:
                     self.ema.restore()
-                if not self.is_distilling:
-                    self._prune_render_dirs()
+                self._prune_render_dirs()
 
             last_map05 = self.latest_map05 if self.latest_map05 is not None else 0.0
             save_name = "last_{:04d}_{:.6f}.pth".format(epoch, last_map05)
