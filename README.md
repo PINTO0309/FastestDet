@@ -372,6 +372,7 @@ uv run python test.py \
   ```bash
   uv run python train.py \
   --exp-name exp_x1_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --weight runs/exp_x1_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0177_0.055092.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
@@ -387,14 +388,14 @@ uv run python test.py \
   --distill-temperature 1.0
 
   uv run python train.py \
-  --exp-name exp_x1_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/exp_x1_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0177_0.055092.pth \
+  --exp-name exp_x1_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --weight runs/exp_x1_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0270_0.067729.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
   --img-size 64x64 \
   --opencv_inter_nearest \
-  --stage-out-channels 1.00 \
+  --stage-out-channels 1.75 \
   --stage-repeats 1.00 \
   --use-skip-residual \
   --pyramid-levels P1 \
