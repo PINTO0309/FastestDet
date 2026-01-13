@@ -395,6 +395,7 @@ class FastestDet:
             self.teacher_model.eval()
             for param in self.teacher_model.parameters():
                 param.requires_grad = False
+        self.is_distilling = self.teacher_model is not None
 
         # # Print tensor shapes of network layers
         summary(self.model, input_size=(self.input_channels, self.cfg.input_height, self.cfg.input_width))
@@ -1295,11 +1296,13 @@ class FastestDet:
                     best_path = os.path.join(self.exp_dir, best_name)
                     self._save_checkpoint(epoch, best_path)
                     self._prune_best_checkpoints()
-                    self._prune_render_dirs()
+                    if not self.is_distilling:
+                        self._prune_render_dirs()
                 self._render_val_predictions(epoch)
                 if self.use_ema and self.ema is not None:
                     self.ema.restore()
-                self._prune_render_dirs()
+                if not self.is_distilling:
+                    self._prune_render_dirs()
 
             last_map05 = self.latest_map05 if self.latest_map05 is not None else 0.0
             save_name = "last_{:04d}_{:.6f}.pth".format(epoch, last_map05)
