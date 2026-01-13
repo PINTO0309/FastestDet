@@ -242,6 +242,7 @@ class FastestDet:
             self.cfg.end_epoch = int(opt.epoch)
         self.val_interval = max(1, int(opt.val_interval))
         self.render_priority_rules = self._normalize_render_priority_rules(self.cfg.render_priority_rules)
+        self.render_drawing_modes = self._collect_render_drawing_modes(self.render_priority_rules)
         self.render_label_ids = self._normalize_render_label_ids(self.cfg.render_label_ids)
         score_ids_defined = self._render_key_defined("SCORE_IDS")
         if score_ids_defined:
@@ -951,14 +952,64 @@ class FastestDet:
             if isinstance(use_parent_box, str):
                 use_parent_box = use_parent_box.strip().lower() in ("1", "true", "yes", "y", "on")
             use_parent_box = bool(use_parent_box)
+            drawing_mode = rule.get("drawing_mode", "box")
+            if isinstance(drawing_mode, str):
+                drawing_mode = drawing_mode.strip().lower()
+            if drawing_mode not in ("box", "arrow"):
+                drawing_mode = "box"
             normalized.append({
                 "parents": mapped_parents,
                 "children": mapped_children,
                 "iou": iou,
                 "require_parent_match": require_parent_match,
                 "use_parent_box": use_parent_box,
+                "drawing_mode": drawing_mode,
             })
         return normalized
+
+    def _collect_render_drawing_modes(self, rules):
+        modes = {}
+        for rule in rules:
+            mode = rule.get("drawing_mode", "box")
+            if mode != "arrow":
+                continue
+            for cid in rule.get("children", []):
+                modes[int(cid)] = mode
+        return modes
+
+    def _arrow_direction_for_label(self, label):
+        if not label:
+            return None
+        key = label.strip().lower().replace("-", "_").replace(" ", "_")
+        mapping = {
+            "front": (0.0, 1.0),
+            "right_front": (-1.0, 1.0),
+            "right_side": (-1.0, 0.0),
+            "right": (-1.0, 0.0),
+            "right_back": (-1.0, -1.0),
+            "back": (0.0, -1.0),
+            "left_back": (1.0, -1.0),
+            "left_side": (1.0, 0.0),
+            "left": (1.0, 0.0),
+            "left_front": (1.0, 1.0),
+        }
+        return mapping.get(key)
+
+    def _draw_orientation_arrow(self, img, center, length, direction, color=(0, 0, 255)):
+        dx, dy = direction
+        norm = math.hypot(dx, dy)
+        if norm <= 0:
+            return
+        dx /= norm
+        dy /= norm
+        length = max(6, int(length))
+        start = (int(round(center[0])), int(round(center[1])))
+        end = (int(round(center[0] + dx * length)), int(round(center[1] + dy * length)))
+        end = (
+            max(0, min(img.shape[1] - 1, end[0])),
+            max(0, min(img.shape[0] - 1, end[1])),
+        )
+        cv2.arrowedLine(img, start, end, color, 2, line_type=cv2.LINE_AA, tipLength=0.3)
 
     def _normalize_render_label_ids(self, label_ids):
         if label_ids is None:
@@ -1131,19 +1182,28 @@ class FastestDet:
                 label_allowed = True
                 if self.render_label_ids is not None:
                     label_allowed = cls_id in self.render_label_ids
-                label = None
-                if label_allowed:
-                    label = self.label_names[cls_id] if cls_id < len(self.label_names) else str(cls_id)
+                label_name = self.label_names[cls_id] if cls_id < len(self.label_names) else str(cls_id)
+                drawing_mode = self.render_drawing_modes.get(cls_id, "box")
                 color = self._color_for_class(cls_id)
                 cv2.rectangle(img, (x1, y1), (x2, y2), (255,255,255), 2)
                 cv2.rectangle(img, (x1, y1), (x2, y2), color, 1)
-                if label:
-                    show_score = True
-                    if self.render_score_ids is not None:
-                        show_score = cls_id in self.render_score_ids
-                    text = f"{label}:{score:.2f}" if show_score else label
-                    cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, (255,255,255), 2)
-                    cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, color, 1)
+                arrow_drawn = False
+                if drawing_mode == "arrow" and label_allowed:
+                    direction = self._arrow_direction_for_label(label_name)
+                    if direction is not None:
+                        center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+                        length = 0.45 * max(1.0, min(x2 - x1, y2 - y1))
+                        self._draw_orientation_arrow(img, center, length, direction)
+                        arrow_drawn = True
+                if not arrow_drawn:
+                    label = label_name if label_allowed else None
+                    if label:
+                        show_score = True
+                        if self.render_score_ids is not None:
+                            show_score = cls_id in self.render_score_ids
+                        text = f"{label}:{score:.2f}" if show_score else label
+                        cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, (255,255,255), 2)
+                        cv2.putText(img, text, (x1, max(0, y1 - 5)), 0, 0.6, color, 1)
             save_path = os.path.join(out_dir, os.path.basename(path))
             cv2.imwrite(save_path, img)
 
