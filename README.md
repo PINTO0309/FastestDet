@@ -22,6 +22,8 @@ Various improvements have been made to make FastestDet even lighter and faster.
     ```
 14. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
 
+<img width="640" height="425" alt="image" src="https://github.com/user-attachments/assets/24881eea-c940-4530-a5ca-5c53d36785af" />
+
 ---
 
 ***2022.7.14:Optimize loss, adopt IOU aware based on smooth L1, and the AP is significantly increased by 0.7***
