@@ -274,7 +274,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x2_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size 64x64 \
   --opencv_inter_nearest \
