@@ -371,6 +371,41 @@ uv run python test.py \
 
   ```bash
   uv run python train.py \
+  --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --yaml configs/uhd09ft.yaml \
+  --lr 0.00100 \
+  --epoch 100 \
+  --img-size 64x64 \
+  --opencv_inter_nearest \
+  --stage-out-channels 1.00 \
+  --stage-repeats 1.00 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --teacher-weight runs/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.0
+
+  uv run python train.py \
+  --exp-name exp_x1_00_x1_00_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --weight runs/exp_x1_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0177_0.055092.pth \
+  --yaml configs/uhd09ft.yaml \
+  --lr 0.00100 \
+  --epoch 100 \
+  --img-size 64x64 \
+  --opencv_inter_nearest \
+  --stage-out-channels 1.00 \
+  --stage-repeats 1.00 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --teacher-weight runs/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.0
+
+  ##################################################
+
+  uv run python train.py \
   --exp-name exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0289_0.317687.pth \
   --yaml configs/uhd09ft.yaml \
