@@ -116,6 +116,7 @@ class FastestDet:
         parser.add_argument('--aug-yaml', type=str, default="utils/aug.yaml", help='augmentation yaml')
         parser.add_argument('--lr', type=float, default=None, help='override learning rate from yaml')
         parser.add_argument('--epoch', type=int, default=None, help='override end epoch from yaml')
+        parser.add_argument('--batch-size', type=int, default=None, help='override batch size from yaml')
         parser.add_argument('--img-size', type=str, default=None, help='override input size as HxW (height x width)')
         parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
         parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
@@ -240,6 +241,8 @@ class FastestDet:
             self.cfg.learn_rate = float(opt.lr)
         if opt.epoch is not None:
             self.cfg.end_epoch = int(opt.epoch)
+        if opt.batch_size is not None:
+            self.cfg.batch_size = int(opt.batch_size)
         self.val_interval = max(1, int(opt.val_interval))
         self.render_priority_rules = self._normalize_render_priority_rules(self.cfg.render_priority_rules)
         self.render_drawing_modes = self._collect_render_drawing_modes(self.render_priority_rules)
