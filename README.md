@@ -745,7 +745,7 @@ uv run python test.py \
   Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.372
   ```
 # Deploy
-## Export onnx
+## Export ONNX
 ```bash
 STAGE_OUT_CHANNELS=3_00
 STAGE_REPEATS=1_00
@@ -758,28 +758,49 @@ uv run python export_onnx.py \
 --onnx-out fastestdetnext_x${STAGE_OUT_CHANNELS}_x${STAGE_REPEATS}_${IMAGE_SIZE}_${RESIZE_MODE}_cls${NUM_CLASSES}.onnx \
 --opset 17
 ```
-## Export torchscript
-* You can export .pt by adding the --torchscript option when executing test.py
-  ```bash
-  uv run python test.py \
-  --yaml configs/coco.yaml \
-  --weight weights/weight_AP05:0.253207_280-epoch.pth \
-  --img data/3.jpg \
-  --torchscript
+## ESP-DL Quantization - PTQ (Post-Training Quantization)
+### 1. Inference speed priority mode
+```bash
+uv run python quantize_onnx_model_for_esp32.py \
+--list-path dataset/wholebody34/train.txt \
+--onnx-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.onnx \
+--espdl-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.espdl \
+--int16-op-pattern /SPP/S3/S3.0/Conv \
+--int16-op-pattern /SPP/S3/S3.2/Relu \
+--int16-op-pattern /SPP/S3/S3.3/Conv \
+--int16-op-pattern /SPP/S3/S3.5/Relu \
+--int16-op-pattern /SPP/S3/S3.6/Conv \
+--int16-op-pattern /SPP/S3/S3.8/Relu \
+--int16-op-pattern /SPP/output/output.0/Conv \
+--int16-op-pattern /SPP/relu/Relu \
+--int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.0/Conv \
+--int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.2/Relu 
 ```
-## NCNN
-* Need to compile ncnn and opencv in advance and modify the path in build.sh
-  ```bash
-  cd example/ncnn/
-  sh build.sh
-  ./FastestDet
-  ```
-## onnx-runtime
-* You can learn about the pre and post-processing methods of FastestDet in this Sample
-  ```bash
-  cd example/onnx-runtime
-  uv run python runtime.py
-  ```
+### 2. Precision Priority Mode
+```bash
+uv run python quantize_onnx_model_for_esp32.py \
+--list-path dataset/wholebody34/train.txt \
+--onnx-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.onnx \
+--espdl-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.espdl \
+--int16-op-pattern /SPP/S3/S3.0/Conv \
+--int16-op-pattern /SPP/S3/S3.2/Relu \
+--int16-op-pattern /SPP/S3/S3.3/Conv \
+--int16-op-pattern /SPP/S3/S3.5/Relu \
+--int16-op-pattern /SPP/S3/S3.6/Conv \
+--int16-op-pattern /SPP/S3/S3.8/Relu \
+--int16-op-pattern /SPP/output/output.0/Conv \
+--int16-op-pattern /SPP/relu/Relu \
+--int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.0/Conv \
+--int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.2/Relu \
+--int16-op-pattern /SPP/S2/S2.0/Conv \
+--int16-op-pattern /SPP/S2/S2.2/Relu \
+--int16-op-pattern /SPP/S2/S2.3/Conv \
+--int16-op-pattern /SPP/S2/S2.5/Relu \
+--int16-op-pattern /detect_head/reg_layers/conv5x5/conv5x5.3/Conv \
+--int16-op-pattern /detect_head/conv1x1/conv1x1/conv1x1.0/Conv \
+--int16-op-pattern /detect_head/conv1x1/conv1x1/conv1x1.2/Relu
+```
+
 # Citation
 * If you find this project useful in your research, please consider cite:
   ```
