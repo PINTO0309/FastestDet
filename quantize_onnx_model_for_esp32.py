@@ -11,7 +11,6 @@ from esp_ppq.api.setting import QuantizationSettingFactory
 from esp_ppq.core import TargetPlatform
 
 from utils.datasets import TensorDataset
-from utils.tool import LoadYaml
 
 DEFAULT_ONNX_MODEL_PATH = "ultratinyod_res_anc8_w16_64x64_opencv_inter_nearest_yuv422_distill_static_nopost.onnx"
 DEFAULT_ESPDL_MODEL_PATH = "ultratinyod_res_anc8_w16_64x64_opencv_inter_nearest_yuv422_distill_static_nopost.espdl"
@@ -216,43 +215,6 @@ def get_onnx_metadata_value(onnx_model_path, key):
     return None
 
 
-def _merge_list_files(paths):
-    merged = []
-    for path in paths:
-        if not path:
-            continue
-        with open(path, "r") as f:
-            merged.extend([ln.strip() for ln in f if ln.strip()])
-    if not merged:
-        raise ValueError("No images found in dataset lists.")
-    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as tmp:
-        tmp.write("\n".join(merged))
-        tmp.write("\n")
-    return tmp.name
-
-
-def resolve_list_path(cfg, split, list_path):
-    if list_path:
-        return list_path
-    split = (split or "all").lower()
-    if split == "train":
-        return cfg.train_txt
-    if split == "val":
-        return cfg.val_txt
-    paths = []
-    if cfg.train_txt:
-        paths.append(cfg.train_txt)
-    if cfg.val_txt and cfg.val_txt != cfg.train_txt:
-        paths.append(cfg.val_txt)
-    if not paths:
-        raise ValueError("No dataset list paths found in yaml.")
-    if len(paths) == 1:
-        return paths[0]
-    merged_path = _merge_list_files(paths)
-    print(f"Combined dataset lists into: {merged_path}")
-    return merged_path
-
-
 def collate_fn(batch):
     if not batch:
         return torch.empty(0, device=DEVICE)
@@ -273,25 +235,9 @@ def collate_fn(batch):
 def build_arg_parser():
     parser = argparse.ArgumentParser(description="Quantize an ONNX model for ESP-DL.")
     parser.add_argument(
-        "--yaml",
-        required=True,
-        help="YAML config used to resolve train/val dataset lists.",
-    )
-    parser.add_argument(
-        "--expand-group-conv",
-        action="store_true",
-        help="Expand group conv (groups > 1) into group=1.",
-    )
-    parser.add_argument(
-        "--split",
-        default="all",
-        choices=["train", "val", "all"],
-        help="Dataset split to use for calibration (ignored if --list-path is set).",
-    )
-    parser.add_argument(
         "--list-path",
-        default=None,
-        help="Optional path to a text file listing images to use.",
+        required=True,
+        help="Path to a text file listing images to use.",
     )
     parser.add_argument(
         "--batch-size",
@@ -344,6 +290,11 @@ def build_arg_parser():
         choices=["cpu", "cuda"],
         help="Device for calibration.",
     )
+    parser.add_argument(
+        "--expand-group-conv",
+        action="store_true",
+        help="Expand group conv (groups > 1) into group=1.",
+    )
     return parser
 
 
@@ -352,12 +303,10 @@ def main():
     global DEVICE, INPUT_IS_NORMALIZED
     DEVICE = args.device
 
-    cfg = LoadYaml(args.yaml)
-    list_path = resolve_list_path(cfg, args.split, args.list_path)
+    list_path = args.list_path
     onnx_size = get_onnx_input_size(args.onnx_model)
     if onnx_size is None:
-        img_w = cfg.input_width
-        img_h = cfg.input_height
+        raise ValueError("Input size missing in ONNX model; provide fixed input dims.")
     else:
         img_w, img_h = onnx_size
     onnx_model_path = args.onnx_model
@@ -370,8 +319,8 @@ def main():
         expand_group_conv=args.expand_group_conv,
     )
     metadata_classes = get_onnx_metadata_value(onnx_model_path, "classes")
-    class_ids = parse_class_ids(metadata_classes) if metadata_classes is not None else cfg.classes
-    resize_mode = get_onnx_metadata_value(onnx_model_path, "resize-mode") or "opencv_inter_nearest"
+    class_ids = parse_class_ids(metadata_classes)
+    resize_mode = get_onnx_metadata_value(onnx_model_path, "resize-mode")
     dataset = TensorDataset(
         list_path,
         img_w,
