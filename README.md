@@ -472,6 +472,7 @@ uv run python test.py \
   --use-skip-residual \
   --pyramid-levels P1 \
   --multi-label-robust-mode
+
   ##########################################################
 
   uv run python train.py \
@@ -483,6 +484,50 @@ uv run python test.py \
   --opencv_inter_nearest \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
+
+  ##########################################################
+
+  uv run python train.py \
+  --exp-name exp_x3_00_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_11cls_mlrm \
+  --yaml configs/uhd11.yaml \
+  --batch-size 16 \
+  --lr 0.01000 \
+  --epoch 300 \
+  --img-size 128x128 \
+  --opencv_inter_nearest \
+  --stage-out-channels 3.00 \
+  --stage-repeats 1.00 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
+
+  uv run python train.py \
+  --exp-name exp_x3_25_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_11cls_mlrm \
+  --yaml configs/uhd11.yaml \
+  --batch-size 16 \
+  --lr 0.01000 \
+  --epoch 300 \
+  --img-size 128x128 \
+  --opencv_inter_nearest \
+  --stage-out-channels 3.25 \
+  --stage-repeats 1.00 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
+
+  uv run python train.py \
+  --exp-name exp_x3_50_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_11cls_mlrm \
+  --yaml configs/uhd11.yaml \
+  --batch-size 16 \
+  --lr 0.01000 \
+  --epoch 300 \
+  --img-size 128x128 \
+  --opencv_inter_nearest \
+  --stage-out-channels 3.50 \
+  --stage-repeats 1.00 \
   --use-skip-residual \
   --pyramid-levels P1 \
   --multi-label-robust-mode
