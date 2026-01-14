@@ -772,9 +772,7 @@ uv run python quantize_onnx_model_for_esp32.py \
 --int16-op-pattern /SPP/S3/S3.6/Conv \
 --int16-op-pattern /SPP/S3/S3.8/Relu \
 --int16-op-pattern /SPP/output/output.0/Conv \
---int16-op-pattern /SPP/relu/Relu \
---int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.0/Conv \
---int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.2/Relu 
+--int16-op-pattern /SPP/relu/Relu
 ```
 ### 2-2. Precision Priority Mode
 ```bash
