@@ -283,12 +283,6 @@ def build_arg_parser():
         help="Expand group conv (groups > 1) into group=1.",
     )
     parser.add_argument(
-        "--remapped-class-ids",
-        default=None,
-        dest="remapped_class_ids",
-        help="Comma-separated class IDs to keep (overrides YAML TRAIN.CLASSES).",
-    )
-    parser.add_argument(
         "--split",
         default="all",
         choices=["train", "val", "all"],
@@ -366,10 +360,6 @@ def main():
         img_h = cfg.input_height
     else:
         img_w, img_h = onnx_size
-    class_ids = cfg.classes
-    if args.remapped_class_ids is not None:
-        class_ids = parse_class_ids(args.remapped_class_ids)
-
     onnx_model_path = args.onnx_model
     espdl_model_path = args.espdl_model
     target = args.target
@@ -379,6 +369,8 @@ def main():
         batch_size=args.batch_size,
         expand_group_conv=args.expand_group_conv,
     )
+    metadata_classes = get_onnx_metadata_value(onnx_model_path, "classes")
+    class_ids = parse_class_ids(metadata_classes) if metadata_classes is not None else cfg.classes
     resize_mode = get_onnx_metadata_value(onnx_model_path, "resize-mode") or "opencv_inter_nearest"
     dataset = TensorDataset(
         list_path,
