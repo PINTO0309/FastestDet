@@ -493,7 +493,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x3_00_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_11cls_mlrm \
   --yaml configs/uhd11.yaml \
-  --batch-size 16 \
+  --batch-size 32 \
   --lr 0.01000 \
   --epoch 300 \
   --img-size 128x128 \
@@ -507,7 +507,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x3_25_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_11cls_mlrm \
   --yaml configs/uhd11.yaml \
-  --batch-size 16 \
+  --batch-size 32 \
   --lr 0.01000 \
   --epoch 300 \
   --img-size 128x128 \
@@ -521,7 +521,7 @@ uv run python test.py \
   uv run python train.py \
   --exp-name exp_x3_50_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_11cls_mlrm \
   --yaml configs/uhd11.yaml \
-  --batch-size 16 \
+  --batch-size 32 \
   --lr 0.01000 \
   --epoch 300 \
   --img-size 128x128 \
