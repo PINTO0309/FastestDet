@@ -172,31 +172,48 @@ def parse_class_ids(value):
     return [int(part) for part in parts if str(part).strip()]
 
 
-def parse_img_size(value):
-    if value is None:
+def _get_dim_value(dim):
+    value = getattr(dim, "dim_value", None)
+    if value is None or value <= 0:
         return None
-    if isinstance(value, int):
-        return value, value
-    text = str(value).lower()
-    if "x" in text:
-        parts = text.split("x")
-        if len(parts) != 2:
-            raise ValueError("--img-size must be an int or HxW format.")
-        try:
-            height = int(parts[0])
-            width = int(parts[1])
-        except ValueError as exc:
-            raise ValueError("--img-size must be an int or HxW format.") from exc
-        if height <= 0 or width <= 0:
-            raise ValueError("--img-size values must be positive.")
-        return width, height
+    return int(value)
+
+
+def get_onnx_input_size(onnx_model_path):
     try:
-        size = int(text)
-    except ValueError as exc:
-        raise ValueError("--img-size must be an int or HxW format.") from exc
-    if size <= 0:
-        raise ValueError("--img-size values must be positive.")
-    return size, size
+        model = onnx.load(onnx_model_path)
+    except Exception:
+        return None
+    init_names = {init.name for init in model.graph.initializer}
+    for inp in model.graph.input:
+        if inp.name in init_names:
+            continue
+        shape = inp.type.tensor_type.shape
+        dims = [_get_dim_value(dim) for dim in shape.dim]
+        if len(dims) < 4:
+            continue
+        dim1, dim2, dim3 = dims[1], dims[2], dims[3]
+        if dim1 in (1, 3) and dim3 not in (1, 3):
+            h, w = dim2, dim3
+        elif dim3 in (1, 3) and dim1 not in (1, 3):
+            h, w = dim1, dim2
+        else:
+            h, w = dim2, dim3
+        if h and w:
+            return w, h
+    return None
+
+
+def get_onnx_metadata_value(onnx_model_path, key):
+    try:
+        model = onnx.load(onnx_model_path)
+    except Exception:
+        return None
+    for prop in model.metadata_props:
+        if prop.key == key:
+            value = str(prop.value).strip()
+            return value or None
+    return None
 
 
 def _merge_list_files(paths):
@@ -266,19 +283,9 @@ def build_arg_parser():
         help="Expand group conv (groups > 1) into group=1.",
     )
     parser.add_argument(
-        "--img-size",
-        type=str,
+        "--remapped-class-ids",
         default=None,
-        help="Override input size (int for square or HxW, defaults to YAML input size).",
-    )
-    parser.add_argument(
-        "--resize-mode",
-        default="opencv_inter_nearest",
-        help="Resize mode for calibration data.",
-    )
-    parser.add_argument(
-        "--class-ids",
-        default=None,
+        dest="remapped_class_ids",
         help="Comma-separated class IDs to keep (overrides YAML TRAIN.CLASSES).",
     )
     parser.add_argument(
@@ -353,15 +360,15 @@ def main():
 
     cfg = LoadYaml(args.yaml)
     list_path = resolve_list_path(cfg, args.split, args.list_path)
-    parsed_size = parse_img_size(args.img_size)
-    if parsed_size is None:
+    onnx_size = get_onnx_input_size(args.onnx_model)
+    if onnx_size is None:
         img_w = cfg.input_width
         img_h = cfg.input_height
     else:
-        img_w, img_h = parsed_size
+        img_w, img_h = onnx_size
     class_ids = cfg.classes
-    if args.class_ids is not None:
-        class_ids = parse_class_ids(args.class_ids)
+    if args.remapped_class_ids is not None:
+        class_ids = parse_class_ids(args.remapped_class_ids)
 
     onnx_model_path = args.onnx_model
     espdl_model_path = args.espdl_model
@@ -372,13 +379,14 @@ def main():
         batch_size=args.batch_size,
         expand_group_conv=args.expand_group_conv,
     )
+    resize_mode = get_onnx_metadata_value(onnx_model_path, "resize-mode") or "opencv_inter_nearest"
     dataset = TensorDataset(
         list_path,
         img_w,
         img_h,
         aug=False,
         class_ids=class_ids,
-        resize_mode=args.resize_mode,
+        resize_mode=resize_mode,
     )
     INPUT_IS_NORMALIZED = getattr(dataset, "input_is_normalized", False)
     # The dataloader shuffle setting must be set to False.

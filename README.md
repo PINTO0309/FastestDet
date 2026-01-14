@@ -706,10 +706,11 @@ STAGE_OUT_CHANNELS=3_00
 STAGE_REPEATS=1_00
 IMAGE_SIZE=96x96
 RESIZE_MODE=opencv_inter_nearest
+NUM_CLASSES=09
 CKPT=runs/exp_x3_00_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0285_0.156692.pth
 uv run python export_onnx.py \
 --weight ${CKPT} \
---onnx-out fastestdetnext_x${STAGE_OUT_CHANNELS}_x${STAGE_REPEATS}_${IMAGE_SIZE}_${RESIZE_MODE}.onnx \
+--onnx-out fastestdetnext_x${STAGE_OUT_CHANNELS}_x${STAGE_REPEATS}_${IMAGE_SIZE}_${RESIZE_MODE}_cls${NUM_CLASSES}.onnx \
 --opset 17
 ```
 ## Export torchscript

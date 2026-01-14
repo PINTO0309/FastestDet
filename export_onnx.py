@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import re
 
@@ -91,6 +92,92 @@ def _get_yaml_category_num(meta_yaml):
             if names:
                 return len(names)
     return None
+
+
+def _get_yaml_train_classes(meta_yaml):
+    if not meta_yaml:
+        return None
+    train_cfg = meta_yaml.get("TRAIN")
+    if not isinstance(train_cfg, dict):
+        return None
+    classes = train_cfg.get("CLASSES")
+    if classes is None:
+        return None
+    if isinstance(classes, (list, tuple)):
+        return ",".join(str(cls) for cls in classes)
+    return str(classes)
+
+
+def _parse_yaml_classes(meta_yaml):
+    if not meta_yaml:
+        return None
+    train_cfg = meta_yaml.get("TRAIN")
+    if not isinstance(train_cfg, dict):
+        return None
+    classes = train_cfg.get("CLASSES")
+    if classes is None:
+        return None
+    if isinstance(classes, str):
+        items = [v.strip() for v in classes.split(",") if v.strip()]
+    elif isinstance(classes, (list, tuple)):
+        items = classes
+    else:
+        items = [classes]
+    parsed = []
+    for item in items:
+        try:
+            if isinstance(item, str):
+                parsed.append(int(float(item)))
+            else:
+                parsed.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return parsed or None
+
+
+def _load_yaml_names(meta_yaml):
+    if not meta_yaml:
+        return None
+    dataset_cfg = meta_yaml.get("DATASET")
+    if not isinstance(dataset_cfg, dict):
+        return None
+    names_value = dataset_cfg.get("NAMES")
+    if names_value is None:
+        return None
+    if isinstance(names_value, (list, tuple)):
+        names = [str(name).strip() for name in names_value if str(name).strip()]
+        return names or None
+    if not isinstance(names_value, str):
+        return None
+    if not os.path.exists(names_value):
+        return None
+    with open(names_value, encoding="utf8") as f:
+        names = [line.strip() for line in f if line.strip()]
+    return names or None
+
+
+def _build_class_id_map(meta_yaml):
+    names = _load_yaml_names(meta_yaml)
+    if not names:
+        return None
+    classes = _parse_yaml_classes(meta_yaml)
+    mapping = {}
+    if classes:
+        if len(names) == len(classes):
+            for new_id, _class_id in enumerate(classes):
+                mapping[str(new_id)] = names[new_id]
+        else:
+            for new_id, class_id in enumerate(classes):
+                if 0 <= class_id < len(names):
+                    mapping[str(new_id)] = names[class_id]
+                elif new_id < len(names):
+                    mapping[str(new_id)] = names[new_id]
+                else:
+                    mapping[str(new_id)] = f"class_{class_id}"
+    else:
+        for idx, name in enumerate(names):
+            mapping[str(idx)] = name
+    return mapping or None
 
 
 def _infer_model_settings(checkpoint):
@@ -272,6 +359,9 @@ def main():
 
     weight_state, checkpoint = _load_weight_state(args.weight)
     inferred = _infer_model_settings(checkpoint)
+    meta_yaml = _get_meta_yaml(checkpoint.get("meta", {}) if isinstance(checkpoint, dict) else {})
+    yaml_train_classes = _get_yaml_train_classes(meta_yaml)
+    class_id_map = _build_class_id_map(meta_yaml)
 
     if args.img_size:
         img_size = _parse_img_size(args.img_size)
@@ -345,6 +435,10 @@ def main():
     onnx.save(model_simp, onnx_out)
     if inferred.get("resize_mode") is not None:
         _set_onnx_metadata(onnx_out, "resize-mode", inferred["resize_mode"])
+    if yaml_train_classes is not None:
+        _set_onnx_metadata(onnx_out, "classes", yaml_train_classes)
+    if class_id_map is not None:
+        _set_onnx_metadata(onnx_out, "remapped-class-ids", json.dumps(class_id_map, ensure_ascii=True))
     print(f"export onnx: {onnx_out}")
     print("onnx sim success...")
 
