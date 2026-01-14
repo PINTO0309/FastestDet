@@ -745,7 +745,7 @@ uv run python test.py \
   Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.372
   ```
 # Deploy
-## Export ONNX
+## 1. Export ONNX
 ```bash
 STAGE_OUT_CHANNELS=3_00
 STAGE_REPEATS=1_00
@@ -758,8 +758,8 @@ uv run python export_onnx.py \
 --onnx-out fastestdetnext_x${STAGE_OUT_CHANNELS}_x${STAGE_REPEATS}_${IMAGE_SIZE}_${RESIZE_MODE}_cls${NUM_CLASSES}.onnx \
 --opset 17
 ```
-## ESP-DL Quantization - PTQ (Post-Training Quantization)
-### 1. Inference speed priority mode
+## 2. ESP-DL Quantization - PTQ (Post-Training Quantization)
+### 2-1. Inference speed priority mode
 ```bash
 uv run python quantize_onnx_model_for_esp32.py \
 --list-path dataset/wholebody34/train.txt \
@@ -776,7 +776,7 @@ uv run python quantize_onnx_model_for_esp32.py \
 --int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.0/Conv \
 --int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.2/Relu 
 ```
-### 2. Precision Priority Mode
+### 2-2. Precision Priority Mode
 ```bash
 uv run python quantize_onnx_model_for_esp32.py \
 --list-path dataset/wholebody34/train.txt \
