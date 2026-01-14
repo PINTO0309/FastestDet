@@ -58,12 +58,7 @@ class ShuffleV2Block(nn.Module):
             return torch.cat((self.branch_proj(x_proj), self.branch_main(x)), 1)
 
     def channel_shuffle(self, x: torch.Tensor):
-        batchsize, num_channels, height, width = x.data.size()
-        # x = x.reshape(batchsize, num_channels // 2, 2, height * width)
-        # x = x.permute(0, 2, 1, 3)
-        # x = x.reshape(batchsize, 2, num_channels // 2, height, width)
-        # return x[:, 0], x[:, 1]
-        batchsize, num_channels, height, width = x.data.size()
+        batchsize, num_channels, height, width = x.shape
         x = x.reshape(batchsize, num_channels // 2, 2, height, width)
         return x[:, :, 0], x[:, :, 1]
 
