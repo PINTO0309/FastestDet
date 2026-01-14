@@ -701,14 +701,17 @@ uv run python test.py \
   ```
 # Deploy
 ## Export onnx
-* You can export .onnx by adding the --onnx option when executing test.py
-  ```bash
-  uv run python test.py \
-  --yaml configs/coco.yaml \
-  --weight weights/weight_AP05:0.253207_280-epoch.pth \
-  --img data/3.jpg \
-  --onnx
-  ```
+```bash
+STAGE_OUT_CHANNELS=3_00
+STAGE_REPEATS=1_00
+IMAGE_SIZE=96x96
+RESIZE_MODE=opencv_inter_nearest
+CKPT=runs/exp_x3_00_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0285_0.156692.pth
+uv run python export_onnx.py \
+--weight ${CKPT} \
+--onnx-out fastestdetnext_x${STAGE_OUT_CHANNELS}_x${STAGE_REPEATS}_${IMAGE_SIZE}_${RESIZE_MODE}.onnx \
+--opset 17
+```
 ## Export torchscript
 * You can export .pt by adding the --torchscript option when executing test.py
   ```bash

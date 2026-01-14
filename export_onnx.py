@@ -3,7 +3,7 @@ import os
 import re
 
 import torch
-from utils.resize import resize_output_channels
+from utils.resize import resize_output_channels, input_name_for_resize_mode
 from module.detector import Detector, normalize_pyramid_levels
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -235,6 +235,21 @@ def _rename_dynamic_batch_dims(model, replacement="N"):
     return renamed
 
 
+def _set_onnx_metadata(onnx_path, key, value):
+    import onnx
+
+    model = onnx.load(onnx_path)
+    for prop in model.metadata_props:
+        if prop.key == key:
+            prop.value = str(value)
+            onnx.save(model, onnx_path)
+            return
+    entry = model.metadata_props.add()
+    entry.key = key
+    entry.value = str(value)
+    onnx.save(model, onnx_path)
+
+
 def build_arg_parser():
     parser = argparse.ArgumentParser(description="Export FastestDet ONNX from a checkpoint.")
     parser.add_argument("--weight", type=str, required=True, help="Checkpoint path (.pth).")
@@ -302,10 +317,11 @@ def main():
         input_width,
         device=device,
     )
+    input_name = input_name_for_resize_mode(inferred.get("resize_mode"))
     dynamic_axes = None
     if args.dynamic_batch:
         dynamic_axes = {
-            "input_rgb": {0: "N"},
+            input_name: {0: "N"},
             "output": {0: "N"},
         }
     torch.onnx.export(
@@ -314,7 +330,7 @@ def main():
         onnx_out,
         export_params=True,
         opset_version=args.opset,
-        input_names=["input_rgb"],
+        input_names=[input_name],
         output_names=["output"],
         dynamic_axes=dynamic_axes,
     )
@@ -327,6 +343,8 @@ def main():
     if args.dynamic_batch:
         _rename_dynamic_batch_dims(model_simp, "N")
     onnx.save(model_simp, onnx_out)
+    if inferred.get("resize_mode") is not None:
+        _set_onnx_metadata(onnx_out, "resize-mode", inferred["resize_mode"])
     print(f"export onnx: {onnx_out}")
     print("onnx sim success...")
 

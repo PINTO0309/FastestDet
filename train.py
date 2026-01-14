@@ -25,6 +25,7 @@ from utils.resize import (
     is_y_only_mode,
     is_y_bin_mode,
     is_y_tri_mode,
+    input_name_for_resize_mode,
 )
 from utils.evaluation import CocoDetectionEvaluator
 
@@ -659,6 +660,7 @@ class FastestDet:
             self.cfg.input_width,
             device=device,
         )
+        input_name = input_name_for_resize_mode(self.resize_mode)
         if self.use_ema and self.ema is not None:
             self.ema.apply_shadow()
         torch.onnx.export(
@@ -667,7 +669,7 @@ class FastestDet:
             path,
             export_params=True,
             opset_version=17,
-            input_names=["input_rgb"],
+            input_names=[input_name],
             output_names=["output"],
         )
         import onnx

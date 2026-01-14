@@ -61,6 +61,21 @@ def resize_output_channels(mode: str) -> int:
     return 3
 
 
+def input_name_for_resize_mode(mode: str) -> str:
+    if mode is None:
+        return "input_rgb"
+    mode = normalize_resize_mode(mode)
+    if mode == YUV422_RESIZE_MODE:
+        return "input_yuv422"
+    if mode == Y_ONLY_RESIZE_MODE:
+        return "input_y"
+    if mode == Y_TRI_RESIZE_MODE:
+        return "input_y_tri"
+    if mode == Y_BIN_RESIZE_MODE:
+        return "input_y_bin"
+    return "input_rgb"
+
+
 def rgb_to_yuyv422(img: np.ndarray) -> np.ndarray:
     """Convert RGB float image [0,1] to YUYV422 packed 2-channel float [0,1] (Y, UV interleaved by x parity)."""
     if img.ndim != 3 or img.shape[2] != 3:
