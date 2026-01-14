@@ -12,8 +12,8 @@ from esp_ppq.core import TargetPlatform
 
 from utils.datasets import TensorDataset
 
-DEFAULT_ONNX_MODEL_PATH = "ultratinyod_res_anc8_w16_64x64_opencv_inter_nearest_yuv422_distill_static_nopost.onnx"
-DEFAULT_ESPDL_MODEL_PATH = "ultratinyod_res_anc8_w16_64x64_opencv_inter_nearest_yuv422_distill_static_nopost.espdl"
+DEFAULT_ONNX_MODEL_PATH = "fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.onnx"
+DEFAULT_ESPDL_MODEL_PATH = "fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.espdl"
 DEFAULT_TARGET = "esp32s3"
 DEFAULT_NUM_OF_BITS = 8
 DEFAULT_DEVICE = "cpu"
@@ -218,14 +218,20 @@ def get_onnx_metadata_value(onnx_model_path, key):
 def collate_fn(batch):
     if not batch:
         return torch.empty(0, device=DEVICE)
-    if isinstance(batch[0], (tuple, list)):
+    if isinstance(batch, (tuple, list)) and len(batch) == 2 and isinstance(batch[0], torch.Tensor):
+        imgs = batch[0]
+    elif isinstance(batch[0], (tuple, list)):
         images = [item[0] for item in batch]
+        if isinstance(images[0], torch.Tensor):
+            imgs = torch.stack(images, dim=0)
+        else:
+            imgs = torch.stack([torch.as_tensor(img) for img in images], dim=0)
     else:
         images = list(batch)
-    if isinstance(images[0], torch.Tensor):
-        imgs = torch.stack(images, dim=0)
-    else:
-        imgs = torch.stack([torch.as_tensor(img) for img in images], dim=0)
+        if isinstance(images[0], torch.Tensor):
+            imgs = torch.stack(images, dim=0)
+        else:
+            imgs = torch.stack([torch.as_tensor(img) for img in images], dim=0)
     imgs = imgs.to(DEVICE).float()
     if not INPUT_IS_NORMALIZED:
         imgs = imgs / 255.0

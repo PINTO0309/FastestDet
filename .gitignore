@@ -4,3 +4,6 @@ runs/
 *.pth
 *.tar.gz
 *.onnx
+*.espdl
+*.info
+*.json
