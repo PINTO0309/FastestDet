@@ -496,7 +496,7 @@ uv run python test.py \
   SIZE=96x96
   uv run python train.py \
   --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/@@@@.pth \
+  --weight runs/nodistill/exp_x2_75_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0271_0.138823.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
