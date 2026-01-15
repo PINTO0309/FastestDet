@@ -210,79 +210,29 @@ uv run python test.py \
   <details><summary>Click to expand</summary>
 
   ```bash
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x30_00_x1_50_64x64_lr0.00100_skipred_noema_P1_02cls \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_P1_02cls \
   --yaml configs/uhd02.yaml \
   --lr 0.00100 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 30.00 \
-  --stage-repeats 1.50 \
+  --stage-repeats 1.25 \
   --use-skip-residual \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
   ##########################################################
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x1_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
-  --img-size 64x64 \
-  --opencv_inter_nearest \
-  --stage-out-channels 1.00 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  uv run python train.py \
-  --exp-name exp_x1_25_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size 64x64 \
-  --opencv_inter_nearest \
-  --stage-out-channels 1.25 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  uv run python train.py \
-  --exp-name exp_x1_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size 64x64 \
-  --opencv_inter_nearest \
-  --stage-out-channels 1.50 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  uv run python train.py \
-  --exp-name exp_x1_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size 64x64 \
-  --opencv_inter_nearest \
-  --stage-out-channels 1.75 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  uv run python train.py \
-  --exp-name exp_x2_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.00 \
   --stage-repeats 1.00 \
@@ -290,12 +240,13 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_25_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.25 \
   --stage-repeats 1.00 \
@@ -303,12 +254,13 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.50 \
   --stage-repeats 1.00 \
@@ -316,12 +268,13 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.75 \
   --stage-repeats 1.00 \
@@ -329,12 +282,13 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x3_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
@@ -342,12 +296,13 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.00100 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
@@ -355,13 +310,14 @@ uv run python test.py \
   --pyramid-levels P1 \
   --multi-label-robust-mode
 
+  SIZE=96x96
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_96x96_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --batch-size 32 \
   --lr 0.00100 \
   --epoch 300 \
-  --img-size 96x96 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
@@ -371,12 +327,13 @@ uv run python test.py \
 
   ##########################################################
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_10cls_mlrm \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_10cls_mlrm \
   --yaml configs/uhd10.yaml \
   --lr 0.00100 \
   --epoch 300 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
@@ -390,13 +347,14 @@ uv run python test.py \
   <details><summary>Click to expand</summary>
 
   ```bash
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/nodistill/exp_x2_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0261_0.078166.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.00 \
   --stage-repeats 1.00 \
@@ -407,13 +365,14 @@ uv run python test.py \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_25_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/nodistill/exp_x2_25_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0274_0.085994.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.25 \
   --stage-repeats 1.00 \
@@ -424,13 +383,14 @@ uv run python test.py \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/nodistill/exp_x2_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0300_0.094535.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.50 \
   --stage-repeats 1.00 \
@@ -441,13 +401,14 @@ uv run python test.py \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/nodistill/exp_x2_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0284_0.099655.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 2.75 \
   --stage-repeats 1.00 \
@@ -458,13 +419,14 @@ uv run python test.py \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x3_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/nodistill/exp_x3_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0279_0.114512.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.01000 \
   --epoch 100 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
@@ -475,32 +437,16 @@ uv run python test.py \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
 
-  uv run python train.py \
-  --exp-name exp_x3_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x3_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0291_0.133235.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size 64x64 \
-  --opencv_inter_nearest \
-  --stage-out-channels 3.50 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
   ##################################################
 
+  SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/nodistill/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0289_0.317687.pth \
   --yaml configs/uhd09ft.yaml \
   --lr 0.00010 \
   --epoch 100 \
-  --img-size 64x64 \
+  --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
