@@ -1,0 +1,43 @@
+DATASET:
+  TRAIN: "dataset/wholebody34/trainft.txt"
+  VAL: "dataset/wholebody34/valft.txt"
+  NAMES: "configs/uhd03.names"
+MODEL:
+  INPUT_WIDTH: 64
+  INPUT_HEIGHT: 64
+TRAIN:
+  LR: 0.00100
+  WARMUP: true
+  BATCH_SIZE: 64
+  END_EPOCH: 100
+  OPTIMIZER: adamw
+  WEIGHT_DECAY: 0.0001
+  SCHEDULER: cosine
+  MIN_LR: 0.0
+  T_MAX: 100
+  CLASSES: 0,7,16
+RENDER:
+  # Only the label names corresponding to the listed class IDs will be drawn.
+  LABEL_IDS: 8,9,10,11,12,13,14,15
+  # Only scores corresponding to the listed class IDs will be plotted.
+  SCORE_IDS:
+  PRIORITY_RULES:
+    - parent: 7
+      children: 8,9,10,11,12,13,14,15
+      iou: 0.8
+      # If set to true, children that do not match the parent will not be drawn.
+      require_parent_match: true
+      # If set to true, the child's bbox will be drawn in the parent's coordinates if the parent-child IoU is greater than or equal to the threshold.
+      use_parent_box: true
+      # drawing_mode: box | arrow (default: box)
+      drawing_mode: arrow
+# TRAIN:
+#   LR: 0.0001
+#   WARMUP: true
+#   BATCH_SIZE: 64
+#   END_EPOCH: 300
+#   MILESTIONES:
+#     - 100
+#     - 200
+#     - 250
+#   CLASSES: 0,7
