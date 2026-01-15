@@ -439,6 +439,7 @@ def main():
         _set_onnx_metadata(onnx_out, "classes", yaml_train_classes)
     if class_id_map is not None:
         _set_onnx_metadata(onnx_out, "remapped-class-ids", json.dumps(class_id_map, ensure_ascii=True))
+    _set_onnx_metadata(onnx_out, "multi_label_robust_mode", inferred["multi_label"])
     print(f"export onnx: {onnx_out}")
     print("onnx sim success...")
 
