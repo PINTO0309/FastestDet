@@ -7,7 +7,7 @@ import torch
 from utils.resize import resize_output_channels, input_name_for_resize_mode
 from module.detector import Detector, normalize_pyramid_levels
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 
 def _parse_img_size(value):
