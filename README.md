@@ -478,7 +478,7 @@ uv run python test.py \
   --distill-temperature 1.5
   ```
 
-  <details>
+  </details>
 
 ### Evaluation
 * Calculate map evaluation
