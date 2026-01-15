@@ -654,15 +654,18 @@ def apply_render_priority_rules(boxes, rules):
     return boxes[keep]
 
 
-def draw_detections(img, dets, class_names):
+def draw_detections(img, dets, class_names, show_labels=True):
     for det in dets:
         x1, y1, x2, y2, score, cls_id = det
         cls_id = int(cls_id)
-        label = class_names[cls_id] if class_names and cls_id < len(class_names) else str(cls_id)
+        label = None
+        if show_labels:
+            label = class_names[cls_id] if class_names and cls_id < len(class_names) else str(cls_id)
         x1_i, y1_i, x2_i, y2_i = int(x1), int(y1), int(x2), int(y2)
         cv2.rectangle(img, (x1_i, y1_i), (x2_i, y2_i), (255, 255, 0), 2)
         cv2.putText(img, f"{score:.2f}", (x1_i, y1_i - 5), 0, 0.6, (0, 255, 0), 2)
-        cv2.putText(img, label, (x1_i, y1_i - 22), 0, 0.6, (0, 255, 0), 2)
+        if label:
+            cv2.putText(img, label, (x1_i, y1_i - 22), 0, 0.6, (0, 255, 0), 2)
 
 
 def draw_detections_with_render_config(img, dets, class_names, render_config):
@@ -804,7 +807,7 @@ def run_on_images(args, session, input_name, input_shape, resize_mode, class_nam
         if render_config:
             draw_detections_with_render_config(display_img, dets, class_names, render_config)
         else:
-            draw_detections(display_img, dets, class_names)
+            draw_detections(display_img, dets, class_names, show_labels=False)
         if not args.actual_size:
             draw_inference_time(display_img, elapsed_ms)
 
@@ -862,7 +865,7 @@ def run_on_camera(args, session, input_name, input_shape, resize_mode, class_nam
         if render_config:
             draw_detections_with_render_config(display_img, dets, class_names, render_config)
         else:
-            draw_detections(display_img, dets, class_names)
+            draw_detections(display_img, dets, class_names, show_labels=False)
         if not args.actual_size:
             draw_inference_time(display_img, elapsed_ms)
 
