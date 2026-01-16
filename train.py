@@ -7,13 +7,17 @@ import warnings
 import random
 import numpy as np
 import torch.nn.functional as F
+import torch.distributed as dist
 import cv2
 from datetime import datetime
 import sys
 import yaml
 from tqdm import tqdm
 from torch import optim
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torchsummary import summary
+from torch.utils.data import Sampler
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
 from utils.tool import *
@@ -51,6 +55,23 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
+class DistributedEvalSampler(Sampler):
+    def __init__(self, dataset, num_replicas=None, rank=None):
+        if num_replicas is None:
+            num_replicas = dist.get_world_size()
+        if rank is None:
+            rank = dist.get_rank()
+        self.dataset = dataset
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.indices = list(range(len(dataset)))[rank::num_replicas]
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
 
 class _TeeStream:
     def __init__(self, *streams):
@@ -132,6 +153,14 @@ class FastestDet:
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
+        parser.add_argument(
+            "--local_rank",
+            "--local-rank",
+            dest="local_rank",
+            type=int,
+            default=None,
+            help="local rank for distributed training (torchrun).",
+        )
         se_group = parser.add_mutually_exclusive_group()
         se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
         se_group.add_argument('--use-ese', action='store_true', default=False, help='enable eSE on shared features')
@@ -215,6 +244,7 @@ class FastestDet:
         if opt.resume is not None:
             assert os.path.exists(opt.resume), "Please provide a valid resume checkpoint path."
         self.cli_params = vars(opt)
+        self._init_distributed(opt)
         with open(opt.yaml, 'r', encoding='utf-8') as f:
             self.yaml_params = yaml.safe_load(f) or {}
 
@@ -224,10 +254,11 @@ class FastestDet:
             self.exp_dir = os.path.join("runs", opt.exp_name)
         self.is_resume = opt.resume is not None
         os.makedirs(self.exp_dir, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=self.exp_dir)
+        self.writer = SummaryWriter(log_dir=self.exp_dir) if self.is_main_process else None
         self.log_path = os.path.join(self.exp_dir, "train.log")
-        self.log_file = open(self.log_path, "a", encoding="utf-8")
-        self._enable_console_log()
+        self.log_file = open(self.log_path, "a", encoding="utf-8") if self.is_main_process else None
+        if self.is_main_process:
+            self._enable_console_log()
 
         # Parse yaml config
         self.cfg = LoadYaml(opt.yaml)
@@ -269,7 +300,8 @@ class FastestDet:
         self.checkpoint_meta = None
         self.label_names = self._load_label_names()
         self._log_start()
-        print(self.cfg)
+        if self.is_main_process:
+            print(self.cfg)
 
         self.use_ema = opt.use_ema
         self.ema_decay = float(opt.ema_decay)
@@ -325,8 +357,15 @@ class FastestDet:
                 pyramid_levels=self.pyramid_levels,
             ).to(device)
 
+        if self.is_distributed:
+            self.model = DDP(
+                self.model,
+                device_ids=[self.local_rank] if torch.cuda.is_available() else None,
+                find_unused_parameters=False,
+            )
+
         if self.use_ema:
-            self.ema = EMA(self.model, decay=self.ema_decay)
+            self.ema = EMA(self._unwrap_model(), decay=self.ema_decay)
             self.ema.register()
 
         self.teacher_model = None
@@ -403,7 +442,8 @@ class FastestDet:
         self.is_distilling = self.teacher_model is not None
 
         # # Print tensor shapes of network layers
-        summary(self.model, input_size=(self.input_channels, self.cfg.input_height, self.cfg.input_width))
+        if self.is_main_process:
+            summary(self._unwrap_model(), input_size=(self.input_channels, self.cfg.input_height, self.cfg.input_width))
 
         # Build optimizer
         opt_name = getattr(self.cfg, "optimizer", "sgd")
@@ -466,6 +506,22 @@ class FastestDet:
             self.resize_mode,
             self.aug_yaml,
         )
+        if self.is_distributed:
+            self.train_sampler = DistributedSampler(
+                train_dataset,
+                num_replicas=self.world_size,
+                rank=self.rank,
+                shuffle=True,
+                seed=SEED,
+            )
+            self.val_sampler = DistributedEvalSampler(
+                val_dataset,
+                num_replicas=self.world_size,
+                rank=self.rank,
+            )
+        else:
+            self.train_sampler = None
+            self.val_sampler = None
 
         # Validation set
         self.data_gen = torch.Generator()
@@ -474,6 +530,7 @@ class FastestDet:
             val_dataset,
             batch_size=self.cfg.batch_size,
             shuffle=False,
+            sampler=self.val_sampler,
             collate_fn=collate_fn,
             num_workers=12,
             drop_last=False,
@@ -486,7 +543,8 @@ class FastestDet:
         self.train_dataloader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=self.cfg.batch_size,
-            shuffle=True,
+            shuffle=self.train_sampler is None,
+            sampler=self.train_sampler,
             collate_fn=collate_fn,
             num_workers=12,
             persistent_workers=True,
@@ -497,7 +555,50 @@ class FastestDet:
         if opt.resume is not None:
             self._load_checkpoint(opt.resume)
 
-        self._disable_console_log()
+        if self.is_main_process:
+            self._disable_console_log()
+
+    def _init_distributed(self, opt):
+        self.is_distributed = False
+        self.rank = 0
+        self.world_size = 1
+        self.local_rank = 0
+        world_size_env = os.environ.get("WORLD_SIZE")
+        if world_size_env is not None:
+            try:
+                self.world_size = int(world_size_env)
+            except ValueError:
+                self.world_size = 1
+        if self.world_size > 1:
+            self.is_distributed = True
+            if torch.cuda.is_available():
+                backend = "nccl"
+                if opt.local_rank is not None:
+                    self.local_rank = int(opt.local_rank)
+                else:
+                    self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
+                torch.cuda.set_device(self.local_rank)
+                dev = torch.device("cuda", self.local_rank)
+            else:
+                backend = "gloo"
+                self.local_rank = 0
+                dev = torch.device("cpu")
+            dist.init_process_group(backend=backend, init_method="env://")
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+        else:
+            dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.is_main_process = self.rank == 0
+        global device
+        device = dev
+
+        self.train_sampler = None
+        self.val_sampler = None
+
+    def _unwrap_model(self):
+        if isinstance(self.model, DDP):
+            return self.model.module
+        return self.model
 
     def _prune_checkpoints(self, max_keep=10):
         checkpoints = []
@@ -586,6 +687,8 @@ class FastestDet:
                 pass
 
     def _enable_console_log(self):
+        if not self.is_main_process:
+            return
         if getattr(self, "_console_tee_enabled", False):
             return
         self._stdout = sys.stdout
@@ -595,6 +698,8 @@ class FastestDet:
         self._console_tee_enabled = True
 
     def _disable_console_log(self):
+        if not self.is_main_process:
+            return
         if not getattr(self, "_console_tee_enabled", False):
             return
         sys.stdout = self._stdout
@@ -602,6 +707,8 @@ class FastestDet:
         self._console_tee_enabled = False
 
     def _log_line(self, line):
+        if not self.is_main_process or self.log_file is None:
+            return
         self.log_file.write(line + "\n")
         self.log_file.flush()
 
@@ -652,7 +759,8 @@ class FastestDet:
         self._log_line(" ".join(parts))
 
     def _export_onnx(self, path):
-        self.model.eval()
+        model = self._unwrap_model()
+        model.eval()
         dummy = torch.zeros(
             1,
             self.input_channels,
@@ -664,7 +772,7 @@ class FastestDet:
         if self.use_ema and self.ema is not None:
             self.ema.apply_shadow()
         torch.onnx.export(
-            self.model,
+            model,
             dummy,
             path,
             export_params=True,
@@ -689,7 +797,7 @@ class FastestDet:
         state = {
             "epoch": epoch,
             "batch_num": self.batch_num,
-            "model": self.model.state_dict(),
+            "model": self._unwrap_model().state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
             "category_num": self.cfg.category_num,
@@ -798,7 +906,7 @@ class FastestDet:
             raise ValueError("pyramid_levels mismatch with checkpoint.")
         if ckpt_category_num is not None and ckpt_category_num != self.cfg.category_num:
             raise ValueError("category_num mismatch with checkpoint.")
-        self.model.load_state_dict(checkpoint["model"])
+        self._unwrap_model().load_state_dict(checkpoint["model"])
         if "optimizer" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
         if "scheduler" in checkpoint:
@@ -1258,9 +1366,10 @@ class FastestDet:
         batch_num = self.batch_num
         input_is_normalized = getattr(self.train_dataloader.dataset, "input_is_normalized", False)
         start_line = "Starting training for %g epochs..." % self.cfg.end_epoch
-        print(start_line)
+        if self.is_main_process:
+            print(start_line)
         self._log_line(start_line)
-        if not self.onnx_exported and not self.is_resume:
+        if self.is_main_process and not self.onnx_exported and not self.is_resume:
             export_path = os.path.join(self.exp_dir, "model.onnx")
             self._export_onnx(export_path)
             self.onnx_exported = True
@@ -1281,7 +1390,9 @@ class FastestDet:
             best_name = None
             if self.teacher_model is not None:
                 distill_weight = self._distill_weight(epoch)
-            pbar = tqdm(self.train_dataloader, dynamic_ncols=True)
+            if self.train_sampler is not None:
+                self.train_sampler.set_epoch(epoch)
+            pbar = tqdm(self.train_dataloader, dynamic_ncols=True, disable=not self.is_main_process)
             for imgs, targets in pbar:
                 # Data preprocessing
                 imgs = imgs.to(device).float()
@@ -1348,40 +1459,53 @@ class FastestDet:
             if epoch % self.val_interval == 0 and epoch > 0:
                 # Model evaluation
                 self.model.eval()
-                print("compute mAP...")
+                if self.is_main_process:
+                    print("compute mAP...")
                 if self.use_ema and self.ema is not None:
                     self.ema.apply_shadow()
-                mAP05 = self.evaluation.compute_map(
-                    self.val_dataloader,
-                    self.model,
-                    multi_label=self.multi_label_robust_mode,
-                )
-                self.latest_map05 = mAP05
-                val_map05 = mAP05
-                self.writer.add_scalar("val/010_mAP50", mAP05, epoch)
-                if self.evaluation.last_per_class_ap:
-                    for idx, (name, ap) in enumerate(self.evaluation.last_per_class_ap):
-                        if np.isnan(ap):
-                            continue
-                        self.writer.add_scalar(f"val/001_AP50_{idx:03d}_{name}", ap, epoch)
-                if mAP05 > self.best_map05:
-                    self.best_map05 = mAP05
-                    self.best_epochs.append(epoch)
-                    best_name = "best_{:04d}_{:.6f}.pth".format(epoch, mAP05)
-                    best_path = os.path.join(self.exp_dir, best_name)
-                    self._save_checkpoint(epoch, best_path)
-                    self._prune_best_checkpoints()
-                self._render_val_predictions(epoch)
+                if self.is_distributed:
+                    mAP05 = self.evaluation.compute_map_distributed(
+                        self.val_dataloader,
+                        self.model,
+                        multi_label=self.multi_label_robust_mode,
+                    )
+                else:
+                    mAP05 = self.evaluation.compute_map(
+                        self.val_dataloader,
+                        self.model,
+                        multi_label=self.multi_label_robust_mode,
+                    )
+                if self.is_main_process and mAP05 is not None:
+                    self.latest_map05 = mAP05
+                    val_map05 = mAP05
+                    if self.writer is not None:
+                        self.writer.add_scalar("val/010_mAP50", mAP05, epoch)
+                    if self.evaluation.last_per_class_ap:
+                        for idx, (name, ap) in enumerate(self.evaluation.last_per_class_ap):
+                            if np.isnan(ap):
+                                continue
+                            if self.writer is not None:
+                                self.writer.add_scalar(f"val/001_AP50_{idx:03d}_{name}", ap, epoch)
+                    if mAP05 > self.best_map05:
+                        self.best_map05 = mAP05
+                        self.best_epochs.append(epoch)
+                        best_name = "best_{:04d}_{:.6f}.pth".format(epoch, mAP05)
+                        best_path = os.path.join(self.exp_dir, best_name)
+                        self._save_checkpoint(epoch, best_path)
+                        self._prune_best_checkpoints()
+                    self._render_val_predictions(epoch)
                 if self.use_ema and self.ema is not None:
                     self.ema.restore()
-                self._prune_render_dirs()
+                if self.is_main_process:
+                    self._prune_render_dirs()
 
             last_map05 = self.latest_map05 if self.latest_map05 is not None else 0.0
             save_name = "last_{:04d}_{:.6f}.pth".format(epoch, last_map05)
             save_path = os.path.join(self.exp_dir, save_name)
-            self._save_checkpoint(epoch, save_path)
-            last_name = save_name
-            self._prune_checkpoints()
+            if self.is_main_process:
+                self._save_checkpoint(epoch, save_path)
+                last_name = save_name
+                self._prune_checkpoints()
 
             train_metrics = None
             distill_metrics = None
@@ -1393,10 +1517,11 @@ class FastestDet:
                     "obj": epoch_obj * inv,
                     "cls": epoch_cls * inv,
                 }
-                self.writer.add_scalar("train/100_loss_total", train_metrics["total"], epoch)
-                self.writer.add_scalar("train/101_loss_iou", train_metrics["iou"], epoch)
-                self.writer.add_scalar("train/102_loss_obj", train_metrics["obj"], epoch)
-                self.writer.add_scalar("train/103_loss_cls", train_metrics["cls"], epoch)
+                if self.writer is not None:
+                    self.writer.add_scalar("train/100_loss_total", train_metrics["total"], epoch)
+                    self.writer.add_scalar("train/101_loss_iou", train_metrics["iou"], epoch)
+                    self.writer.add_scalar("train/102_loss_obj", train_metrics["obj"], epoch)
+                    self.writer.add_scalar("train/103_loss_cls", train_metrics["cls"], epoch)
                 if self.teacher_model is not None:
                     distill_metrics = {
                         "total": epoch_distill_total * inv,
@@ -1405,20 +1530,26 @@ class FastestDet:
                         "cls": epoch_distill_cls * inv,
                         "weight": distill_weight,
                     }
-                    self.writer.add_scalar("train/109_distill_weight", distill_metrics["weight"], epoch)
-                    self.writer.add_scalar("train/110_loss_distill_total", distill_metrics["total"], epoch)
-                    self.writer.add_scalar("train/111_loss_distill_obj", distill_metrics["obj"], epoch)
-                    self.writer.add_scalar("train/112_loss_distill_box", distill_metrics["box"], epoch)
-                    self.writer.add_scalar("train/113_loss_distill_cls", distill_metrics["cls"], epoch)
-                self.writer.add_scalar("train/120_lr", lr, epoch)
+                    if self.writer is not None:
+                        self.writer.add_scalar("train/109_distill_weight", distill_metrics["weight"], epoch)
+                        self.writer.add_scalar("train/110_loss_distill_total", distill_metrics["total"], epoch)
+                        self.writer.add_scalar("train/111_loss_distill_obj", distill_metrics["obj"], epoch)
+                        self.writer.add_scalar("train/112_loss_distill_box", distill_metrics["box"], epoch)
+                        self.writer.add_scalar("train/113_loss_distill_cls", distill_metrics["cls"], epoch)
+                if self.writer is not None:
+                    self.writer.add_scalar("train/120_lr", lr, epoch)
 
             # Adjust learning rate
             if self.scheduler is not None:
                 self.scheduler.step()
             if train_metrics is not None:
                 self._log_epoch(epoch, lr, train_metrics, distill_metrics, val_map05, last_name, best_name)
-        self.writer.close()
-        self.log_file.close()
+        if self.writer is not None:
+            self.writer.close()
+        if self.log_file is not None:
+            self.log_file.close()
+        if self.is_distributed:
+            dist.destroy_process_group()
 
 if __name__ == "__main__":
     model = FastestDet()

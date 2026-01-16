@@ -548,7 +548,7 @@ uv run python test.py \
   --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
-  
+
   SIZE=128x128
   uv run python train.py \
   --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
@@ -566,7 +566,7 @@ uv run python test.py \
   --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
-  
+
   SIZE=128x128
   uv run python train.py \
   --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
@@ -584,7 +584,7 @@ uv run python test.py \
   --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
-  
+
   SIZE=128x128
   uv run python train.py \
   --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
@@ -602,7 +602,7 @@ uv run python test.py \
   --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.0
-  
+
   SIZE=128x128
   uv run python train.py \
   --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
@@ -663,6 +663,28 @@ uv run python test.py \
   ```
 
   </details>
+
+### DDP (torchrun) with distributed evaluation
+* Run multi-GPU training and distributed evaluation with `torchrun`:
+  ```bash
+  SIZE=128x128
+  torchrun --nproc_per_node=4 train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_03cls_mlrm \
+  --yaml configs/uhd03.yaml \
+  --batch-size 64 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode
+  ```
+* `BATCH_SIZE` in the yaml is per GPU, so the global batch size is `BATCH_SIZE * nproc_per_node`.
+* `--nproc_per_node` sets the number of GPU processes to launch on the node (typically the number of GPUs to use).
+* Checkpoints, TensorBoard logs, ONNX export, and preview images are written by rank0 only.
 
 ### Evaluation
 * Calculate map evaluation
