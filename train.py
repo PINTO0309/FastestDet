@@ -339,7 +339,7 @@ class FastestDet:
                 multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
             ).to(device)
-            weight_data = torch.load(opt.weight, map_location=device)
+            weight_data = torch.load(opt.weight, map_location=device, weights_only=False)
             weight_state = weight_data
             if isinstance(weight_data, dict):
                 if "model" in weight_data:
@@ -376,7 +376,7 @@ class FastestDet:
         self.teacher_stage_out_channels = None
         self.teacher_stage_repeats = None
         if opt.teacher_weight:
-            teacher_ckpt = torch.load(opt.teacher_weight, map_location=device)
+            teacher_ckpt = torch.load(opt.teacher_weight, map_location=device, weights_only=False)
             ckpt_stage_out = None
             ckpt_stage_repeats = None
             ckpt_state = None
@@ -871,7 +871,7 @@ class FastestDet:
         raise TypeError(f"{name} must be a torch.ByteTensor or convertible type, got {type(state)}")
 
     def _load_checkpoint(self, path):
-        checkpoint = torch.load(path, map_location=device)
+        checkpoint = torch.load(path, map_location=device, weights_only=False)
         required_keys = {
             "model",
             "optimizer",
