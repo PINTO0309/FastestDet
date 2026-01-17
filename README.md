@@ -670,7 +670,7 @@ uv run python test.py \
   SIZE=640x640
   torchrun --nproc_per_node=4 train.py \
   --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd03.yaml \
+  --yaml configs/uhd09.yaml \
   --batch-size 8 \
   --num-workers 8 \
   --lr 0.00100 \
