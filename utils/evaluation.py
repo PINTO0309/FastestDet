@@ -77,6 +77,8 @@ class CocoDetectionEvaluator():
             coco_eval.summarize()
         mAP05 = coco_eval.stats[1]
         self._print_per_class_ap(coco_eval)
+        map_text = "nan" if np.isnan(mAP05) else f"{mAP05:.5f}"
+        print(f"mAP@0.5: {map_text}")
         return mAP05
 
     def _print_per_class_ap(self, coco_eval):
