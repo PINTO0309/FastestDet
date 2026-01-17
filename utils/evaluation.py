@@ -1,4 +1,5 @@
 import torch
+import torch.distributed as dist
 import numpy as np
 import io
 import sys
@@ -112,13 +113,14 @@ class CocoDetectionEvaluator():
         print(top)
         self.last_per_class_ap = results
 
-    def compute_map(self, val_dataloader, model, multi_label=False):
+    def _collect_gts_pts(self, val_dataloader, model, multi_label=False):
         gts, pts = [], []
         input_is_normalized = getattr(val_dataloader.dataset, "input_is_normalized", False)
-        pbar = tqdm(val_dataloader)
+        disable_pbar = dist.is_available() and dist.is_initialized() and dist.get_rank() != 0
+        pbar = tqdm(val_dataloader, disable=disable_pbar)
         imgs: torch.Tensor
         targets: torch.Tensor
-        for i, (imgs, targets) in enumerate(pbar):
+        for _, (imgs, targets) in enumerate(pbar):
             # Data preprocessing
             imgs = imgs.to(self.device).float()
             if not input_is_normalized:
@@ -159,7 +161,24 @@ class CocoDetectionEvaluator():
                 y2 = bcy + 0.5 * bh
                 tbboxes = np.stack((tn[:, 1], x1, y1, x2, y2), axis=1)
                 gts.append(tbboxes)
+        return gts, pts
 
+    def compute_map(self, val_dataloader, model, multi_label=False):
+        gts, pts = self._collect_gts_pts(val_dataloader, model, multi_label=multi_label)
         mAP05 = self.coco_evaluate(gts, pts)
-
         return mAP05
+
+    def compute_map_distributed(self, val_dataloader, model, multi_label=False):
+        gts, pts = self._collect_gts_pts(val_dataloader, model, multi_label=multi_label)
+        if not dist.is_available() or not dist.is_initialized():
+            return self.coco_evaluate(gts, pts)
+        world_size = dist.get_world_size()
+        gathered_gts = [None for _ in range(world_size)]
+        gathered_pts = [None for _ in range(world_size)]
+        dist.all_gather_object(gathered_gts, gts)
+        dist.all_gather_object(gathered_pts, pts)
+        if dist.get_rank() != 0:
+            return None
+        flat_gts = [item for sublist in gathered_gts for item in sublist]
+        flat_pts = [item for sublist in gathered_pts for item in sublist]
+        return self.coco_evaluate(flat_gts, flat_pts)
