@@ -668,12 +668,12 @@ uv run python test.py \
 * Run multi-GPU training and distributed evaluation with `torchrun`:
   ```bash
   SIZE=640x640
-  torchrun --nproc_per_node=4 train.py \
+  torchrun --nproc_per_node=8 train.py \
   --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --batch-size 8 \
   --num-workers 8 \
-  --lr 0.00400 \
+  --lr 0.00800 \
   --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
@@ -684,13 +684,13 @@ uv run python test.py \
   --multi-label-robust-mode
 
   SIZE=640x640
-  torchrun --nproc_per_node=4 train.py \
+  torchrun --nproc_per_node=8 train.py \
   --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill \
   --weight runs/exp_x50_00_x1_25_128x128_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0295_0.421461.pth \
   --yaml configs/uhd09ft.yaml \
   --batch-size 5 \
   --num-workers 5 \
-  --lr 0.00040 \
+  --lr 0.00080 \
   --epoch 100 \
   --img-size ${SIZE} \
   --num-workers 5 \
