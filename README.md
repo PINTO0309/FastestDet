@@ -682,7 +682,8 @@ uv run python test.py \
   --stage-repeats 1.25 \
   --use-skip-residual \
   --pyramid-levels P1 \
-  --multi-label-robust-mode
+  --multi-label-robust-mode \
+  --val-interval 5
 
   SIZE=640x640
   torchrun --nproc_per_node=8 train.py \
@@ -703,7 +704,8 @@ uv run python test.py \
   --multi-label-robust-mode \
   --teacher-weight runs/exp_x50_00_x1_25_128x128_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0295_0.421461.pth \
   --distill-weight-max 1.0 \
-  --distill-temperature 1.5
+  --distill-temperature 1.5 \
+  --val-interval 10
   ```
 * `BATCH_SIZE` in the yaml is per GPU, so the global batch size is `BATCH_SIZE * nproc_per_node`.
 * `--nproc_per_node` sets the number of GPU processes to launch on the node (typically the number of GPUs to use).
