@@ -139,6 +139,7 @@ class FastestDet:
         parser.add_argument('--lr', type=float, default=None, help='override learning rate from yaml')
         parser.add_argument('--epoch', type=int, default=None, help='override end epoch from yaml')
         parser.add_argument('--batch-size', type=int, default=None, help='override batch size from yaml')
+        parser.add_argument('--num-workers', type=int, default=12, help='number of dataloader workers')
         parser.add_argument('--img-size', type=str, default=None, help='override input size as HxW (height x width)')
         parser.add_argument('--val-interval', type=int, default=1, help='validation interval in epochs')
         parser.add_argument('--stage-out-channels', type=float, default=1.0, help='stage_out_channels multiplier (0.125 step)')
@@ -275,6 +276,9 @@ class FastestDet:
             self.cfg.end_epoch = int(opt.epoch)
         if opt.batch_size is not None:
             self.cfg.batch_size = int(opt.batch_size)
+        if opt.num_workers is None or int(opt.num_workers) < 0:
+            raise ValueError("--num-workers must be >= 0.")
+        self.num_workers = int(opt.num_workers)
         self.val_interval = max(1, int(opt.val_interval))
         self.render_priority_rules = self._normalize_render_priority_rules(self.cfg.render_priority_rules)
         self.render_drawing_modes = self._collect_render_drawing_modes(self.render_priority_rules)
@@ -532,7 +536,7 @@ class FastestDet:
             shuffle=False,
             sampler=self.val_sampler,
             collate_fn=collate_fn,
-            num_workers=12,
+            num_workers=self.num_workers,
             drop_last=False,
             persistent_workers=True,
             worker_init_fn=seed_worker,
@@ -546,7 +550,7 @@ class FastestDet:
             shuffle=self.train_sampler is None,
             sampler=self.train_sampler,
             collate_fn=collate_fn,
-            num_workers=12,
+            num_workers=self.num_workers,
             persistent_workers=True,
             worker_init_fn=seed_worker,
             generator=self.data_gen,
