@@ -683,7 +683,7 @@ uv run python test.py \
   --use-skip-residual \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --val-interval 5
+  --val-interval 10
 
   SIZE=640x640
   torchrun --nproc_per_node=8 train.py \
