@@ -667,11 +667,11 @@ uv run python test.py \
 ### DDP (torchrun) with distributed evaluation
 * Run multi-GPU training and distributed evaluation with `torchrun`:
   ```bash
-  SIZE=128x128
+  SIZE=640x640
   torchrun --nproc_per_node=4 train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_03cls_mlrm \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
   --yaml configs/uhd03.yaml \
-  --batch-size 64 \
+  --batch-size 8 \
   --lr 0.00100 \
   --epoch 300 \
   --img-size ${SIZE} \
