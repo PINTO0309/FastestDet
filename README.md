@@ -695,7 +695,6 @@ uv run python test.py \
   --lr 0.00080 \
   --epoch 100 \
   --img-size ${SIZE} \
-  --num-workers 5 \
   --opencv_inter_nearest \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
