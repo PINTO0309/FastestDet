@@ -704,7 +704,7 @@ uv run python test.py \
   --teacher-weight runs/exp_x50_00_x1_25_128x128_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0295_0.421461.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.5 \
-  --val-interval 10
+  --val-interval 20
   ```
 * `BATCH_SIZE` in the yaml is per GPU, so the global batch size is `BATCH_SIZE * nproc_per_node`.
 * `--nproc_per_node` sets the number of GPU processes to launch on the node (typically the number of GPUs to use).
