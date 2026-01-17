@@ -690,7 +690,7 @@ uv run python test.py \
   --yaml configs/uhd09ft.yaml \
   --batch-size 5 \
   --num-workers 5 \
-  --lr 0.00010 \
+  --lr 0.00040 \
   --epoch 100 \
   --img-size ${SIZE} \
   --num-workers 5 \
