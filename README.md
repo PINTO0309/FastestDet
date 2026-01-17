@@ -673,7 +673,7 @@ uv run python test.py \
   --yaml configs/uhd09.yaml \
   --batch-size 8 \
   --num-workers 8 \
-  --lr 0.00100 \
+  --lr 0.00400 \
   --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
@@ -707,6 +707,7 @@ uv run python test.py \
 * `BATCH_SIZE` in the yaml is per GPU, so the global batch size is `BATCH_SIZE * nproc_per_node`.
 * `--nproc_per_node` sets the number of GPU processes to launch on the node (typically the number of GPUs to use).
 * Checkpoints, TensorBoard logs, ONNX export, and preview images are written by rank0 only.
+* Generally, it is recommended to set the learning rate to `--nproc_per_node` times the default value.
 
 ### Evaluation
 * Calculate map evaluation
