@@ -365,7 +365,7 @@ class FastestDet:
             self.model = DDP(
                 self.model,
                 device_ids=[self.local_rank] if torch.cuda.is_available() else None,
-                find_unused_parameters=False,
+                find_unused_parameters=True,
             )
 
         if self.use_ema:
