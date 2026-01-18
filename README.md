@@ -13,20 +13,21 @@ Various improvements have been made to make FastestDet even lighter and faster.
 5. Distillation
 6. Resume
 7. Toggle pyramid-levels: `P1 only`, `P2 only`, `P3 only`, `P1 + P2`, `P1 + P3`, `P2 + P3`, `P1 + P2 + P3`. For very low resolution models, including P2 and P3 in the architecture significantly reduces accuracy.
-8. Backbone ShuffleNetv2 improvements: `Shuffle-free shufflenet`
-9. SE (Squeeze-and-Excitation) block/eSE (efficient Squeeze-and-Excitation) block
-10. Skip-Residual block
-11. Free expansion of the number of channels by `--stage-out-channels`
-12. Freely expansion of the number of stages by `--stage-repeats`
-13. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
-14. Params and FLOPs Profiler: `profile_onnx.py`
+8. Added stride adjustment function using `--stride-half` and `--stride-quarter` flags
+9. Backbone ShuffleNetv2 improvements: `Shuffle-free shufflenet`
+10. SE (Squeeze-and-Excitation) block/eSE (efficient Squeeze-and-Excitation) block
+11. Skip-Residual block
+12. Free expansion of the number of channels by `--stage-out-channels`
+13. Freely expansion of the number of stages by `--stage-repeats`
+14. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
+15. Params and FLOPs Profiler: `profile_onnx.py`
     ```bash
     uv run python profile_onnx.py model.onnx
 
     Params: 72,861 (72.861 Kparams)
     FLOPs:  10,908,672 (0.011 GFLOPs)
     ```
-15. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
+16. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
 
 ---
 
