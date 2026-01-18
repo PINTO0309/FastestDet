@@ -66,25 +66,46 @@ class ShuffleV2Block(nn.Module):
 
 DEFAULT_STAGE_REPEATS = [4, 8, 4]
 DEFAULT_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
+DEFAULT_P1_STRIDE = 8
+
+
+def _resolve_stem_strides(p1_stride):
+    if p1_stride == 8:
+        return 2, 2
+    if p1_stride == 4:
+        return 2, 1
+    if p1_stride == 2:
+        return 1, 1
+    raise ValueError("p1_stride must be one of 2, 4, or 8.")
 
 class ShuffleNetV2(nn.Module):
-    def __init__(self, stage_repeats, stage_out_channels, load_param, in_channels=3, use_skip_residual=False):
+    def __init__(
+        self,
+        stage_repeats,
+        stage_out_channels,
+        load_param,
+        in_channels=3,
+        use_skip_residual=False,
+        p1_stride=DEFAULT_P1_STRIDE,
+    ):
         super(ShuffleNetV2, self).__init__()
 
         self.stage_repeats = stage_repeats
         self.stage_out_channels = stage_out_channels
         self.in_channels = in_channels
         self.use_skip_residual = use_skip_residual
+        self.p1_stride = DEFAULT_P1_STRIDE if p1_stride is None else int(p1_stride)
+        self.stem_stride, self.maxpool_stride = _resolve_stem_strides(self.p1_stride)
 
         # building first layer
         input_channel = self.stage_out_channels[1]
         self.first_conv = nn.Sequential(
-            nn.Conv2d(in_channels, input_channel, 3, 2, 1, bias=False),
+            nn.Conv2d(in_channels, input_channel, 3, self.stem_stride, 1, bias=False),
             nn.BatchNorm2d(input_channel),
             nn.ReLU(inplace=True),
         )
 
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=self.maxpool_stride, padding=1)
 
         stage_names = ["stage2", "stage3", "stage4"]
         for idxstage in range(len(self.stage_repeats)):
@@ -122,6 +143,7 @@ class ShuffleNetV2(nn.Module):
             self.in_channels != 3
             or self.stage_repeats != DEFAULT_STAGE_REPEATS
             or self.stage_out_channels != DEFAULT_STAGE_OUT_CHANNELS
+            or self.p1_stride != DEFAULT_P1_STRIDE
         ):
             print("Skip loading shufflenetv2.pth due to non-default backbone configuration.")
             return

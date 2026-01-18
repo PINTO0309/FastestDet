@@ -220,6 +220,10 @@ def _infer_model_settings(checkpoint):
         checkpoint.get("use_ese"),
         cli.get("use_ese"),
     )
+    p1_stride = _first_not_none(
+        checkpoint.get("p1_stride"),
+        derived.get("p1_stride"),
+    )
     resize_mode = _first_not_none(
         checkpoint.get("resize_mode"),
         derived.get("resize_mode"),
@@ -239,6 +243,8 @@ def _infer_model_settings(checkpoint):
 
     if input_channels is None and resize_mode is not None:
         input_channels = resize_output_channels(resize_mode)
+    if p1_stride is None:
+        p1_stride = 8
 
     missing = []
     if stage_out_channels is None:
@@ -279,6 +285,7 @@ def _infer_model_settings(checkpoint):
         "multi_label": bool(multi_label),
         "resize_mode": resize_mode,
         "input_channels": int(input_channels),
+        "p1_stride": int(p1_stride),
         "cli_img_size": cli.get("img_size"),
         "yaml_input_size": yaml_input_size,
         "category_num": int(category_num),
@@ -384,6 +391,7 @@ def main():
         inferred["category_num"],
         True,
         input_channels=input_channels,
+        p1_stride=inferred["p1_stride"],
         stage_repeats=stage_repeats,
         stage_out_channels=stage_out_channels,
         use_skip_residual=inferred["use_skip_residual"],

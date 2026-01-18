@@ -154,6 +154,9 @@ class FastestDet:
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
+        stride_group = parser.add_mutually_exclusive_group()
+        stride_group.add_argument('--stride-half', action='store_true', default=False, help='use P1=4,P2=8,P3=16')
+        stride_group.add_argument('--stride-quarter', action='store_true', default=False, help='use P1=2,P2=4,P3=8')
         parser.add_argument(
             "--local_rank",
             "--local-rank",
@@ -291,6 +294,12 @@ class FastestDet:
         self.resize_mode = opt.resize_mode
         self.aug_yaml = opt.aug_yaml if opt.aug_yaml else None
         self.input_channels = resize_output_channels(self.resize_mode)
+        if opt.stride_half:
+            self.p1_stride = 4
+        elif opt.stride_quarter:
+            self.p1_stride = 2
+        else:
+            self.p1_stride = 8
         _validate_eighth_step(opt.stage_out_channels, "stage_out_channels")
         _validate_eighth_step(opt.stage_repeats, "stage_repeats")
         self.stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, opt.stage_out_channels, keep_first=True)
@@ -331,6 +340,7 @@ class FastestDet:
                 self.cfg.category_num,
                 True,
                 self.input_channels,
+                p1_stride=self.p1_stride,
                 stage_repeats=self.stage_repeats,
                 stage_out_channels=self.stage_out_channels,
                 use_skip_residual=self.use_skip_residual,
@@ -352,6 +362,7 @@ class FastestDet:
                 self.cfg.category_num,
                 False,
                 self.input_channels,
+                p1_stride=self.p1_stride,
                 stage_repeats=self.stage_repeats,
                 stage_out_channels=self.stage_out_channels,
                 use_skip_residual=self.use_skip_residual,
@@ -375,6 +386,7 @@ class FastestDet:
         self.teacher_model = None
         self.teacher_stage_out_channels = None
         self.teacher_stage_repeats = None
+        self.teacher_p1_stride = None
         if opt.teacher_weight:
             teacher_ckpt = torch.load(opt.teacher_weight, map_location=device, weights_only=False)
             ckpt_stage_out = None
@@ -414,6 +426,16 @@ class FastestDet:
                         teacher_use_se = bool(teacher_ckpt["use_se"])
                     if "use_ese" in teacher_ckpt:
                         teacher_use_ese = bool(teacher_ckpt["use_ese"])
+            teacher_p1_stride = self.p1_stride
+            if isinstance(teacher_ckpt, dict):
+                if ckpt_is_teacher:
+                    if "teacher_p1_stride" in teacher_ckpt:
+                        teacher_p1_stride = int(teacher_ckpt["teacher_p1_stride"])
+                    elif "p1_stride" in teacher_ckpt:
+                        teacher_p1_stride = int(teacher_ckpt["p1_stride"])
+                else:
+                    if "p1_stride" in teacher_ckpt:
+                        teacher_p1_stride = int(teacher_ckpt["p1_stride"])
             if teacher_use_se and teacher_use_ese:
                 raise ValueError("Teacher model cannot enable both SE and eSE.")
             if not use_ckpt_backbone:
@@ -427,10 +449,12 @@ class FastestDet:
             self.teacher_use_skip_residual = teacher_use_skip
             self.teacher_use_se = teacher_use_se
             self.teacher_use_ese = teacher_use_ese
+            self.teacher_p1_stride = teacher_p1_stride
             self.teacher_model = Detector(
                 self.cfg.category_num,
                 True,
                 self.input_channels,
+                p1_stride=teacher_p1_stride,
                 stage_repeats=teacher_repeats,
                 stage_out_channels=teacher_out_channels,
                 use_skip_residual=teacher_use_skip,
@@ -816,6 +840,7 @@ class FastestDet:
             "stage_repeats": self.stage_repeats,
             "pyramid_levels": self.pyramid_levels,
             "input_channels": self.input_channels,
+            "p1_stride": self.p1_stride,
             "use_skip_residual": self.use_skip_residual,
             "use_se": self.use_se,
             "use_ese": self.use_ese,
@@ -837,6 +862,7 @@ class FastestDet:
                     "input_channels": self.input_channels,
                     "category_num": self.cfg.category_num,
                     "pyramid_levels": self.pyramid_levels,
+                    "p1_stride": self.p1_stride,
                     "use_ema": self.use_ema,
                     "use_amp": self.use_amp,
                 },
@@ -850,6 +876,7 @@ class FastestDet:
             state["teacher_use_se"] = getattr(self, "teacher_use_se", None)
             state["teacher_use_ese"] = getattr(self, "teacher_use_ese", None)
             state["teacher_pyramid_levels"] = self.pyramid_levels
+            state["teacher_p1_stride"] = getattr(self, "teacher_p1_stride", None)
         if self.use_ema and self.ema is not None:
             state["ema_shadow"] = self.ema.shadow
             state["ema_decay"] = self.ema.decay
@@ -893,6 +920,7 @@ class FastestDet:
         ckpt_use_se = checkpoint.get("use_se")
         ckpt_use_ese = checkpoint.get("use_ese")
         ckpt_pyramid_levels = checkpoint.get("pyramid_levels")
+        ckpt_p1_stride = checkpoint.get("p1_stride")
         ckpt_category_num = checkpoint.get("category_num")
         if ckpt_stage_out is not None and ckpt_stage_out != self.stage_out_channels:
             raise ValueError("stage_out_channels mismatch with checkpoint.")
@@ -908,6 +936,8 @@ class FastestDet:
             raise ValueError("use_ese mismatch with checkpoint.")
         if ckpt_pyramid_levels is not None and tuple(ckpt_pyramid_levels) != self.pyramid_levels:
             raise ValueError("pyramid_levels mismatch with checkpoint.")
+        if ckpt_p1_stride is not None and int(ckpt_p1_stride) != self.p1_stride:
+            raise ValueError("p1_stride mismatch with checkpoint.")
         if ckpt_category_num is not None and ckpt_category_num != self.cfg.category_num:
             raise ValueError("category_num mismatch with checkpoint.")
         self._unwrap_model().load_state_dict(checkpoint["model"])
@@ -937,6 +967,7 @@ class FastestDet:
             teacher_use_se = checkpoint.get("teacher_use_se")
             teacher_use_ese = checkpoint.get("teacher_use_ese")
             teacher_pyramid_levels = checkpoint.get("teacher_pyramid_levels", self.pyramid_levels)
+            teacher_p1_stride = checkpoint.get("teacher_p1_stride", self.p1_stride)
             if teacher_out_channels is None or teacher_repeats is None:
                 raise ValueError("Checkpoint is missing teacher backbone settings.")
             self.teacher_stage_out_channels = teacher_out_channels
@@ -944,12 +975,14 @@ class FastestDet:
             self.teacher_use_skip_residual = bool(teacher_use_skip) if teacher_use_skip is not None else False
             self.teacher_use_se = bool(teacher_use_se) if teacher_use_se is not None else False
             self.teacher_use_ese = bool(teacher_use_ese) if teacher_use_ese is not None else False
+            self.teacher_p1_stride = teacher_p1_stride
             if self.teacher_use_se and self.teacher_use_ese:
                 raise ValueError("Checkpoint enables both SE and eSE for teacher.")
             self.teacher_model = Detector(
                 self.cfg.category_num,
                 True,
                 self.input_channels,
+                p1_stride=teacher_p1_stride,
                 stage_repeats=teacher_repeats,
                 stage_out_channels=teacher_out_channels,
                 use_skip_residual=self.teacher_use_skip_residual,

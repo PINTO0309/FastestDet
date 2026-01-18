@@ -42,17 +42,20 @@ class Detector(nn.Module):
         use_se=False,
         multi_label=False,
         pyramid_levels=None,
+        p1_stride=8,
     ):
         super(Detector, self).__init__()
 
         self.stage_repeats = stage_repeats or [4, 8, 4]
         self.stage_out_channels = stage_out_channels or [-1, 24, 48, 96, 192]
+        self.p1_stride = 8 if p1_stride is None else int(p1_stride)
         self.backbone = ShuffleNetV2(
             self.stage_repeats,
             self.stage_out_channels,
             load_param,
             in_channels=input_channels,
             use_skip_residual=use_skip_residual,
+            p1_stride=self.p1_stride,
         )
 
         self.pyramid_levels = normalize_pyramid_levels(pyramid_levels)

@@ -178,16 +178,25 @@ uv run python test.py \
   ```
 * Number of classes is derived from `TRAIN.CLASSES` (if set) or the number of lines in `DATASET.NAMES`.
 * `--classes` overrides `TRAIN.CLASSES` and updates the derived class count.
+
 ### Stride details
 * Backbone downsampling: `first_conv` stride 2, `maxpool` stride 2, and the first block of each stage (`stage2/3/4`) uses stride 2.
 * Feature map strides (relative to input):
   * `P1` (stage2 output): stride 8
   * `P2` (stage3 output): stride 16
   * `P3` (stage4 output): stride 32
+
+### Stride adjustment
+* Backbone stride presets (requires re-training; not compatible with existing checkpoints):
+  * `--stride-half` → P1/P2/P3 = 4/8/16
+  * `--stride-quarter` → P1/P2/P3 = 2/4/8
+* If neither flag is set, the default strides are used: P1/P2/P3 = 8/16/32.
+
 ### `--pyramid-levels`
 * Comma-separated list of pyramid levels to fuse: `P1,P2,P3` (default) or any subset (e.g. `P1,P3`, `P2`).
 * When fusing multiple levels, features are aligned to `P2` resolution: `P1` is downsampled (avg pool stride 2), `P3` is upsampled (x2).
 * When using a single level, its native stride is used (P1=8, P2=16, P3=32).
+
 ### Output tensor meaning
 * Output shape is `float32[B, 1 + 4 + NC, H, W]`.
   * `B`: batch size
@@ -197,6 +206,7 @@ uv run python test.py \
   * `0`: objectness (sigmoid)
   * `1-4`: box regression (tx, ty, tw, th)
   * `5..(4+NC)`: class probabilities (softmax)
+
 ### Score calculation
 * Final score per box is computed as:
   * `score = (objectness ** 0.6) * (max_class_prob ** 0.4)`

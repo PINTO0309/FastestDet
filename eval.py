@@ -134,6 +134,10 @@ def _infer_eval_settings(checkpoint):
         checkpoint.get("use_ese"),
         cli.get("use_ese"),
     )
+    p1_stride = _first_not_none(
+        checkpoint.get("p1_stride"),
+        derived.get("p1_stride"),
+    )
     resize_mode = _first_not_none(
         checkpoint.get("resize_mode"),
         derived.get("resize_mode"),
@@ -147,6 +151,8 @@ def _infer_eval_settings(checkpoint):
 
     if input_channels is None and resize_mode is not None:
         input_channels = resize_output_channels(resize_mode)
+    if p1_stride is None:
+        p1_stride = 8
 
     missing = []
     if stage_out_channels is None:
@@ -185,6 +191,7 @@ def _infer_eval_settings(checkpoint):
         "multi_label": bool(multi_label),
         "resize_mode": resize_mode,
         "input_channels": int(input_channels),
+        "p1_stride": int(p1_stride),
     }
 
 
@@ -236,10 +243,12 @@ if __name__ == '__main__':
     multi_label_robust_mode = inferred["multi_label"]
     resize_mode = inferred["resize_mode"]
     input_channels = inferred["input_channels"]
+    p1_stride = inferred["p1_stride"]
     model = Detector(
         cfg.category_num,
         True,
         input_channels=input_channels,
+        p1_stride=p1_stride,
         stage_repeats=stage_repeats,
         stage_out_channels=stage_out_channels,
         use_skip_residual=inferred["use_skip_residual"],
