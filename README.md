@@ -715,8 +715,16 @@ uv run python test.py \
 * Calculate map evaluation
   ```bash
   uv run python eval.py \
-  --yaml configs/coco.yaml \
-  --weight weights/weight_AP05:0.253207_280-epoch.pth
+  --yaml configs/uhd09.yaml \
+  --weight runs/distill/exp_x3_00_x1_00_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0100_0.486152.pth \
+  --img-size 640x640 \
+  --batch-size 1
+
+  uv run python eval.py \
+  --yaml configs/uhd09.yaml \
+  --weight runs/distill/exp_x3_00_x1_00_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0100_0.486152.pth \
+  --img-size 320x320 \
+  --batch-size 1
   ```
 * COCO2017 evaluation
   ```
