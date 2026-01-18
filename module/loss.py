@@ -72,7 +72,9 @@ class DetectorLoss(nn.Module):
             # Filter out-of-bounds coordinates
             quadrant = quadrant.repeat(gt.size(1), 1, 1).permute(1, 0, 2)
             gij = gt[..., 2:4].long() + quadrant
-            j = torch.where(gij < H, gij, 0).min(dim=-1)[0] > 0
+            gx = gij[..., 0]
+            gy = gij[..., 1]
+            j = (gx >= 0) & (gx < W) & (gy >= 0) & (gy < H)
 
             # Foreground indices
             gi, gj = gij[j].T
