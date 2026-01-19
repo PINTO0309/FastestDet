@@ -17,17 +17,18 @@ Various improvements have been made to make FastestDet even lighter and faster.
 9. Backbone ShuffleNetv2 improvements: `Shuffle-free shufflenet`
 10. SE (Squeeze-and-Excitation) block/eSE (efficient Squeeze-and-Excitation) block
 11. Skip-Residual block
-12. Free expansion of the number of channels by `--stage-out-channels`
-13. Freely expansion of the number of stages by `--stage-repeats`
-14. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
-15. Params and FLOPs Profiler: `profile_onnx.py`
+12. Added `--use-spp-separate-1x1` to use separate 1x1 conversion for each SPP branch, which is important to minimize quantization error.
+13. Free expansion of the number of channels by `--stage-out-channels`
+14. Freely expansion of the number of stages by `--stage-repeats`
+15. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
+16. Params and FLOPs Profiler: `profile_onnx.py`
     ```bash
     uv run python profile_onnx.py model.onnx
 
     Params: 72,861 (72.861 Kparams)
     FLOPs:  10,908,672 (0.011 GFLOPs)
     ```
-16. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
+17. Replace pycocotools with [faster-coco-eval](https://github.com/MiXaiLL76/faster_coco_eval)
 
 ---
 
@@ -83,7 +84,7 @@ uv run python test.py \
 --img data/3.jpg
 ```
 <div align=center>
-<img src="https://github.com/dog-qiuqiu/FastestDet/blob/main/result.png"> />
+<img src="https://github.com/dog-qiuqiu/FastestDet/blob/main/result.png" />
 </div>
 
 ## How to train
@@ -224,79 +225,7 @@ uv run python test.py \
   ```bash
   SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_P1_02cls \
-  --yaml configs/uhd02.yaml \
-  --lr 0.00100 \
-  --epoch 300 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 30.00 \
-  --stage-repeats 1.25 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  ##########################################################
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.00 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.25 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.50 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
-  --yaml configs/uhd09.yaml \
-  --lr 0.01000 \
-  --epoch 300 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.75 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_half_sppsep_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --lr 0.01000 \
   --epoch 300 \
@@ -305,53 +234,80 @@ uv run python test.py \
   --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  SIZE=64x64
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 20
+  
+  SIZE=60x80
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_half_sppsep_09cls_mlrm \
   --yaml configs/uhd09.yaml \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
-  --stage-out-channels 50.00 \
-  --stage-repeats 1.25 \
+  --stage-out-channels 3.00 \
+  --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
-  --multi-label-robust-mode
-
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 20
+  
   SIZE=96x96
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --lr 0.01000 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 3.00 \
+  --stage-repeats 1.00 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 20
+  
+  SIZE=90x120
+  uv run python train.py \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --lr 0.01000 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 3.00 \
+  --stage-repeats 1.00 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 20
+  
+  SIZE=120x160
+  uv run python train.py \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_half_sppsep_09cls_mlrm \
   --yaml configs/uhd09.yaml \
   --batch-size 32 \
-  --lr 0.00100 \
+  --lr 0.01000 \
   --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
-  --stage-out-channels 50.00 \
-  --stage-repeats 1.25 \
+  --stage-out-channels 3.00 \
+  --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
-  --multi-label-robust-mode
-
-  ##########################################################
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00100_skipred_noema_noamp_P1_10cls_mlrm \
-  --yaml configs/uhd10.yaml \
-  --lr 0.00100 \
-  --epoch 300 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 50.00 \
-  --stage-repeats 1.25 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 20
   ```
 
   </details>
@@ -361,286 +317,300 @@ uv run python test.py \
   ```bash
   SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0261_0.078166.pth \
-  --yaml configs/uhd09ft.yaml \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
   --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.00 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_25_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0274_0.085994.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.25 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_50_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0300_0.094535.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.50 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_75_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0284_0.099655.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.75 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=64x64
-  uv run python train.py \
-  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x3_00_x1_00_64x64_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0279_0.114512.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_64x64_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0089_0.503895.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  ##################################################
-
-  SIZE=96x96
+  --stride-quarter \
+  --val-interval 20
+  
+  SIZE=60x80
   uv run python train.py \
-  --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_00_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0265_0.111729.pth \
-  --yaml configs/uhd09ft.yaml \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
   --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.00 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_96x96_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0088_0.598428.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=96x96
-  uv run python train.py \
-  --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_25_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0248_0.121294.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.25 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_96x96_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0088_0.598428.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=96x96
-  uv run python train.py \
-  --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_50_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0244_0.135500.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.50 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_96x96_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0088_0.598428.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=96x96
-  uv run python train.py \
-  --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_75_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0271_0.138823.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
-  --img-size ${SIZE} \
-  --opencv_inter_nearest \
-  --stage-out-channels 2.75 \
-  --stage-repeats 1.00 \
-  --use-skip-residual \
-  --pyramid-levels P1 \
-  --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_96x96_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0088_0.598428.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=96x96
-  uv run python train.py \
-  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x3_00_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0285_0.156692.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_96x96_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0088_0.598428.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  ##################################################
-
-  SIZE=128x128
+  --stride-quarter \
+  --val-interval 20
+  
+  SIZE=96x96
   uv run python train.py \
-  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x3_00_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0284_0.187487.pth \
-  --yaml configs/uhd09ft.yaml \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
   --lr 0.01000 \
-  --epoch 100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
   --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=128x128
+  --stride-quarter \
+  --val-interval 20
+  
+  SIZE=90x120
   uv run python train.py \
-  --exp-name exp_x2_75_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_75_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0267_0.175330.pth \
-  --yaml configs/uhd09ft.yaml \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
   --lr 0.01000 \
-  --epoch 100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
-  --stage-out-channels 2.75 \
+  --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=128x128
+  --stride-quarter \
+  --val-interval 20
+  
+  SIZE=120x160
   uv run python train.py \
-  --exp-name exp_x2_50_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_50_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0300_0.164616.pth \
-  --yaml configs/uhd09ft.yaml \
+  --exp-name exp_x3_00_x1_00_${SIZE}_lr0.01000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 32 \
   --lr 0.01000 \
-  --epoch 100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
-  --stage-out-channels 2.50 \
+  --stage-out-channels 3.00 \
   --stage-repeats 1.00 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
+  --stride-quarter \
+  --val-interval 20
+  ```
 
-  SIZE=128x128
-  uv run python train.py \
-  --exp-name exp_x2_25_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_25_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0252_0.155978.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
+  </details>
+
+  <details><summary>Click to expand</summary>
+
+  ```bash
+  SIZE=64x64
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
-  --stage-out-channels 2.25 \
-  --stage-repeats 1.00 \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
-
-  SIZE=128x128
-  uv run python train.py \
-  --exp-name exp_x2_00_x1_00_${SIZE}_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x2_00_x1_00_128x128_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0247_0.140171.pth \
-  --yaml configs/uhd09ft.yaml \
-  --lr 0.01000 \
-  --epoch 100 \
+  --stride-half \
+  --val-interval 50
+  
+  SIZE=60x80
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
   --img-size ${SIZE} \
   --opencv_inter_nearest \
-  --stage-out-channels 2.00 \
-  --stage-repeats 1.00 \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/distill/exp_x50_00_x1_25_128x128_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/best_0094_0.647316.pth \
-  --distill-weight-max 1.0 \
-  --distill-temperature 1.0
+  --stride-half \
+  --val-interval 50
+  
+  SIZE=96x96
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 50
+  
+  SIZE=90x120
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 50
+  
+  SIZE=120x160
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 50
+  
+  ###################
+  
+  SIZE=64x64
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50
+  
+  SIZE=60x80
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50
+  
+  SIZE=96x96
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50
+  
+  SIZE=90x120
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50
+  
+  SIZE=120x160
+  python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00100 \
+  --epoch 300 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50
+  ```
 
-  ##################################################
+  </details>
 
+  <details><summary>Click to expand</summary>
+
+  ```bash
   SIZE=64x64
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0289_0.317687.pth \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
   --yaml configs/uhd09ft.yaml \
-  --batch-size 64 \
+  --batch-size 60 \
+  --num-workers 60 \
   --lr 0.00010 \
   --epoch 100 \
   --img-size ${SIZE} \
@@ -648,18 +618,21 @@ uv run python test.py \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/nodistill/exp_x50_00_x1_25_64x64_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0289_0.317687.pth \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.5
-
-  SIZE=96x96
+  
+  SIZE=60x80
   uv run python train.py \
-  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill \
-  --weight runs/nodistill/exp_x50_00_x1_25_96x96_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0275_0.382446.pth \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
   --yaml configs/uhd09ft.yaml \
-  --batch-size 32 \
+  --batch-size 60 \
+  --num-workers 60 \
   --lr 0.00010 \
   --epoch 100 \
   --img-size ${SIZE} \
@@ -667,9 +640,190 @@ uv run python test.py \
   --stage-out-channels 50.00 \
   --stage-repeats 1.25 \
   --use-skip-residual \
+  --use-spp-separate-1x1 \
   --pyramid-levels P1 \
   --multi-label-robust-mode \
-  --teacher-weight runs/nodistill/exp_x50_00_x1_25_96x96_lr0.00100_skipred_noema_noamp_P1_09cls_mlrm/best_0275_0.382446.pth \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=96x96
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=90x120
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=120x160
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_half_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-half \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  ###################
+  
+  SIZE=64x64
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=60x80
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=96x96
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=90x120
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
+  --distill-weight-max 1.0 \
+  --distill-temperature 1.5
+  
+  SIZE=120x160
+  uv run python train.py \
+  --exp-name exp_x50_00_x1_25_${SIZE}_lr0.001000_P1_quarter_sppsep_09cls_mlrm \
+  --yaml configs/uhd09ft.yaml \
+  --batch-size 60 \
+  --num-workers 60 \
+  --lr 0.00010 \
+  --epoch 100 \
+  --img-size ${SIZE} \
+  --opencv_inter_nearest \
+  --stage-out-channels 50.00 \
+  --stage-repeats 1.25 \
+  --use-skip-residual \
+  --use-spp-separate-1x1 \
+  --pyramid-levels P1 \
+  --multi-label-robust-mode \
+  --stride-quarter \
+  --val-interval 50 \
+  --teacher-weight runs/exp_x50_00_x1_25_640x640_lr0.00010_skipred_noema_noamp_P1_09cls_mlrm_distill/last_0100_0.799208.pth \
   --distill-weight-max 1.0 \
   --distill-temperature 1.5
   ```
@@ -769,7 +923,7 @@ STAGE_REPEATS=1_00
 IMAGE_SIZE=96x96
 RESIZE_MODE=opencv_inter_nearest
 NUM_CLASSES=09
-CKPT=runs/exp_x3_00_x1_00_96x96_lr0.01000_skipred_noema_noamp_P1_09cls_mlrm/best_0285_0.156692.pth
+CKPT=runs/exp_x3_00_x1_00_64x64_lr0.01000_P1_half_sppsep_09cls_mlrm/best_0300_0.151091.pth
 uv run python export_onnx.py \
 --weight ${CKPT} \
 --onnx-out fastestdetnext_x${STAGE_OUT_CHANNELS}_x${STAGE_REPEATS}_${IMAGE_SIZE}_${RESIZE_MODE}_cls${NUM_CLASSES}.onnx \
@@ -780,40 +934,16 @@ uv run python export_onnx.py \
 ```bash
 uv run python quantize_onnx_model_for_esp32.py \
 --list-path dataset/wholebody34/train.txt \
---onnx-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.onnx \
---espdl-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.espdl \
---int16-op-pattern /SPP/S3/S3.0/Conv \
---int16-op-pattern /SPP/S3/S3.2/Relu \
---int16-op-pattern /SPP/S3/S3.3/Conv \
---int16-op-pattern /SPP/S3/S3.5/Relu \
---int16-op-pattern /SPP/S3/S3.6/Conv \
---int16-op-pattern /SPP/S3/S3.8/Relu \
---int16-op-pattern /SPP/output/output.0/Conv \
---int16-op-pattern /SPP/relu/Relu
+--onnx-model fastestdetnext_x3_00_x1_00_64x64_opencv_inter_nearest_cls09.onnx \
+--espdl-model fastestdetnext_x3_00_x1_00_64x64_opencv_inter_nearest_cls09.espdl
 ```
 ### 2-2. Precision Priority Mode
 ```bash
 uv run python quantize_onnx_model_for_esp32.py \
 --list-path dataset/wholebody34/train.txt \
---onnx-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.onnx \
---espdl-model fastestdetnext_x3_00_x1_00_96x96_opencv_inter_nearest_cls09.espdl \
---int16-op-pattern /SPP/S3/S3.0/Conv \
---int16-op-pattern /SPP/S3/S3.2/Relu \
---int16-op-pattern /SPP/S3/S3.3/Conv \
---int16-op-pattern /SPP/S3/S3.5/Relu \
---int16-op-pattern /SPP/S3/S3.6/Conv \
---int16-op-pattern /SPP/S3/S3.8/Relu \
---int16-op-pattern /SPP/output/output.0/Conv \
---int16-op-pattern /SPP/relu/Relu \
---int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.0/Conv \
---int16-op-pattern /SPP/Conv1x1/conv1x1/conv1x1.2/Relu \
---int16-op-pattern /SPP/S2/S2.0/Conv \
---int16-op-pattern /SPP/S2/S2.2/Relu \
---int16-op-pattern /SPP/S2/S2.3/Conv \
---int16-op-pattern /SPP/S2/S2.5/Relu \
---int16-op-pattern /detect_head/reg_layers/conv5x5/conv5x5.3/Conv \
---int16-op-pattern /detect_head/conv1x1/conv1x1/conv1x1.0/Conv \
---int16-op-pattern /detect_head/conv1x1/conv1x1/conv1x1.2/Relu
+--onnx-model fastestdetnext_x3_00_x1_00_64x64_opencv_inter_nearest_cls09.onnx \
+--espdl-model fastestdetnext_x3_00_x1_00_64x64_opencv_inter_nearest_cls09.espdl \
+--int16-op-pattern /SPP/output3/output3.0/Conv
 ```
 
 # Citation
