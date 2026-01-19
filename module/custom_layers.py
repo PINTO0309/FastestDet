@@ -27,9 +27,10 @@ class Head(nn.Module):
         return self.conv5x5(x)
 
 class SPP(nn.Module):
-    def __init__(self, input_channels, output_channels):
+    def __init__(self, input_channels, output_channels, separate_1x1=False):
         super(SPP, self).__init__()
         self.Conv1x1 = Conv1x1(input_channels, output_channels)
+        self.separate_1x1 = bool(separate_1x1)
 
         self.S1 =  nn.Sequential(nn.Conv2d(output_channels, output_channels, 5, 1, 2, groups = output_channels, bias = False),
                                  nn.BatchNorm2d(output_channels),
@@ -58,9 +59,24 @@ class SPP(nn.Module):
                                  nn.ReLU(inplace=True)
                                  )
 
-        self.output = nn.Sequential(nn.Conv2d(output_channels * 3, output_channels, 1, 1, 0, bias = False),
-                                    nn.BatchNorm2d(output_channels),
-                                   )
+        if self.separate_1x1:
+            self.output1 = nn.Sequential(
+                nn.Conv2d(output_channels, output_channels, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(output_channels),
+            )
+            self.output2 = nn.Sequential(
+                nn.Conv2d(output_channels, output_channels, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(output_channels),
+            )
+            self.output3 = nn.Sequential(
+                nn.Conv2d(output_channels, output_channels, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(output_channels),
+            )
+        else:
+            self.output = nn.Sequential(
+                nn.Conv2d(output_channels * 3, output_channels, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(output_channels),
+            )
 
         self.relu = nn.ReLU(inplace=True)
 
@@ -71,8 +87,12 @@ class SPP(nn.Module):
         y2 = self.S2(x)
         y3 = self.S3(x)
 
-        y = torch.cat((y1, y2, y3), dim=1)
-        y = self.relu(x + self.output(y))
+        if self.separate_1x1:
+            y = self.output1(y1) + self.output2(y2) + self.output3(y3)
+        else:
+            y = torch.cat((y1, y2, y3), dim=1)
+            y = self.output(y)
+        y = self.relu(x + y)
 
         return y
 

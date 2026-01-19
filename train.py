@@ -154,6 +154,7 @@ class FastestDet:
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
+        parser.add_argument('--spp-separate-1x1', action='store_true', default=False, help='use separate 1x1 conv per SPP branch')
         stride_group = parser.add_mutually_exclusive_group()
         stride_group.add_argument('--stride-half', action='store_true', default=False, help='use P1=4,P2=8,P3=16')
         stride_group.add_argument('--stride-quarter', action='store_true', default=False, help='use P1=2,P2=4,P3=8')
@@ -323,6 +324,7 @@ class FastestDet:
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
         self.multi_label_robust_mode = opt.multi_label_robust_mode
         self.use_skip_residual = opt.use_skip_residual
+        self.spp_separate_1x1 = opt.spp_separate_1x1
         self.use_se = opt.use_se
         self.use_ese = opt.use_ese
         self.distill_weight_max = float(opt.distill_weight_max)
@@ -348,6 +350,7 @@ class FastestDet:
                 use_se=self.use_se,
                 multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
+                spp_separate_1x1=self.spp_separate_1x1,
             ).to(device)
             weight_data = torch.load(opt.weight, map_location=device, weights_only=False)
             weight_state = weight_data
@@ -370,6 +373,7 @@ class FastestDet:
                 use_se=self.use_se,
                 multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
+                spp_separate_1x1=self.spp_separate_1x1,
             ).to(device)
 
         if self.is_distributed:
@@ -411,6 +415,7 @@ class FastestDet:
             teacher_use_skip = self.use_skip_residual
             teacher_use_se = self.use_se
             teacher_use_ese = self.use_ese
+            teacher_spp_separate_1x1 = self.spp_separate_1x1
             if isinstance(teacher_ckpt, dict):
                 if ckpt_is_teacher:
                     if "teacher_use_skip_residual" in teacher_ckpt:
@@ -419,6 +424,8 @@ class FastestDet:
                         teacher_use_se = bool(teacher_ckpt["teacher_use_se"])
                     if "teacher_use_ese" in teacher_ckpt:
                         teacher_use_ese = bool(teacher_ckpt["teacher_use_ese"])
+                    if "teacher_spp_separate_1x1" in teacher_ckpt:
+                        teacher_spp_separate_1x1 = bool(teacher_ckpt["teacher_spp_separate_1x1"])
                 else:
                     if "use_skip_residual" in teacher_ckpt:
                         teacher_use_skip = bool(teacher_ckpt["use_skip_residual"])
@@ -426,6 +433,18 @@ class FastestDet:
                         teacher_use_se = bool(teacher_ckpt["use_se"])
                     if "use_ese" in teacher_ckpt:
                         teacher_use_ese = bool(teacher_ckpt["use_ese"])
+                if "spp_separate_1x1" in teacher_ckpt:
+                    teacher_spp_separate_1x1 = bool(teacher_ckpt["spp_separate_1x1"])
+                else:
+                    meta = teacher_ckpt.get("meta")
+                    if isinstance(meta, dict):
+                        derived = meta.get("derived")
+                        if isinstance(derived, dict) and "spp_separate_1x1" in derived:
+                            teacher_spp_separate_1x1 = bool(derived["spp_separate_1x1"])
+                        else:
+                            cli = meta.get("cli")
+                            if isinstance(cli, dict) and "spp_separate_1x1" in cli:
+                                teacher_spp_separate_1x1 = bool(cli["spp_separate_1x1"])
             teacher_p1_stride = self.p1_stride
             if isinstance(teacher_ckpt, dict):
                 if ckpt_is_teacher:
@@ -449,6 +468,7 @@ class FastestDet:
             self.teacher_use_skip_residual = teacher_use_skip
             self.teacher_use_se = teacher_use_se
             self.teacher_use_ese = teacher_use_ese
+            self.teacher_spp_separate_1x1 = teacher_spp_separate_1x1
             self.teacher_p1_stride = teacher_p1_stride
             self.teacher_model = Detector(
                 self.cfg.category_num,
@@ -462,6 +482,7 @@ class FastestDet:
                 use_se=teacher_use_se,
                 multi_label=self.multi_label_robust_mode,
                 pyramid_levels=self.pyramid_levels,
+                spp_separate_1x1=teacher_spp_separate_1x1,
             ).to(device)
             self.teacher_model.load_state_dict(teacher_state)
             self.teacher_model.eval()
@@ -842,6 +863,7 @@ class FastestDet:
             "input_channels": self.input_channels,
             "p1_stride": self.p1_stride,
             "use_skip_residual": self.use_skip_residual,
+            "spp_separate_1x1": self.spp_separate_1x1,
             "use_se": self.use_se,
             "use_ese": self.use_ese,
             "use_ema": self.use_ema,
@@ -865,6 +887,7 @@ class FastestDet:
                     "p1_stride": self.p1_stride,
                     "use_ema": self.use_ema,
                     "use_amp": self.use_amp,
+                    "spp_separate_1x1": self.spp_separate_1x1,
                 },
             },
         }
@@ -875,6 +898,7 @@ class FastestDet:
             state["teacher_use_skip_residual"] = getattr(self, "teacher_use_skip_residual", None)
             state["teacher_use_se"] = getattr(self, "teacher_use_se", None)
             state["teacher_use_ese"] = getattr(self, "teacher_use_ese", None)
+            state["teacher_spp_separate_1x1"] = getattr(self, "teacher_spp_separate_1x1", None)
             state["teacher_pyramid_levels"] = self.pyramid_levels
             state["teacher_p1_stride"] = getattr(self, "teacher_p1_stride", None)
         if self.use_ema and self.ema is not None:
@@ -919,6 +943,7 @@ class FastestDet:
         ckpt_use_skip = checkpoint.get("use_skip_residual")
         ckpt_use_se = checkpoint.get("use_se")
         ckpt_use_ese = checkpoint.get("use_ese")
+        ckpt_spp_separate_1x1 = checkpoint.get("spp_separate_1x1")
         ckpt_pyramid_levels = checkpoint.get("pyramid_levels")
         ckpt_p1_stride = checkpoint.get("p1_stride")
         ckpt_category_num = checkpoint.get("category_num")
@@ -934,6 +959,10 @@ class FastestDet:
             raise ValueError("use_se mismatch with checkpoint.")
         if ckpt_use_ese is not None and ckpt_use_ese != self.use_ese:
             raise ValueError("use_ese mismatch with checkpoint.")
+        if ckpt_spp_separate_1x1 is None:
+            ckpt_spp_separate_1x1 = False
+        if bool(ckpt_spp_separate_1x1) != self.spp_separate_1x1:
+            raise ValueError("spp_separate_1x1 mismatch with checkpoint.")
         if ckpt_pyramid_levels is not None and tuple(ckpt_pyramid_levels) != self.pyramid_levels:
             raise ValueError("pyramid_levels mismatch with checkpoint.")
         if ckpt_p1_stride is not None and int(ckpt_p1_stride) != self.p1_stride:
@@ -966,6 +995,7 @@ class FastestDet:
             teacher_use_skip = checkpoint.get("teacher_use_skip_residual")
             teacher_use_se = checkpoint.get("teacher_use_se")
             teacher_use_ese = checkpoint.get("teacher_use_ese")
+            teacher_spp_separate_1x1 = checkpoint.get("teacher_spp_separate_1x1")
             teacher_pyramid_levels = checkpoint.get("teacher_pyramid_levels", self.pyramid_levels)
             teacher_p1_stride = checkpoint.get("teacher_p1_stride", self.p1_stride)
             if teacher_out_channels is None or teacher_repeats is None:
@@ -975,6 +1005,9 @@ class FastestDet:
             self.teacher_use_skip_residual = bool(teacher_use_skip) if teacher_use_skip is not None else False
             self.teacher_use_se = bool(teacher_use_se) if teacher_use_se is not None else False
             self.teacher_use_ese = bool(teacher_use_ese) if teacher_use_ese is not None else False
+            if teacher_spp_separate_1x1 is None:
+                teacher_spp_separate_1x1 = False
+            self.teacher_spp_separate_1x1 = bool(teacher_spp_separate_1x1)
             self.teacher_p1_stride = teacher_p1_stride
             if self.teacher_use_se and self.teacher_use_ese:
                 raise ValueError("Checkpoint enables both SE and eSE for teacher.")
@@ -990,6 +1023,7 @@ class FastestDet:
                 use_ese=self.teacher_use_ese,
                 multi_label=self.multi_label_robust_mode,
                 pyramid_levels=teacher_pyramid_levels,
+                spp_separate_1x1=self.teacher_spp_separate_1x1,
             ).to(device)
             self.teacher_model.eval()
             for param in self.teacher_model.parameters():

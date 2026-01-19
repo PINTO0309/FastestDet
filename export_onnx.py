@@ -220,6 +220,11 @@ def _infer_model_settings(checkpoint):
         checkpoint.get("use_ese"),
         cli.get("use_ese"),
     )
+    spp_separate_1x1 = _first_not_none(
+        checkpoint.get("spp_separate_1x1"),
+        derived.get("spp_separate_1x1"),
+        cli.get("spp_separate_1x1"),
+    )
     p1_stride = _first_not_none(
         checkpoint.get("p1_stride"),
         derived.get("p1_stride"),
@@ -274,6 +279,8 @@ def _infer_model_settings(checkpoint):
 
     if use_se and use_ese:
         raise ValueError("Checkpoint enables both SE and eSE.")
+    if spp_separate_1x1 is None:
+        spp_separate_1x1 = False
 
     return {
         "stage_out_channels": stage_out_channels,
@@ -282,6 +289,7 @@ def _infer_model_settings(checkpoint):
         "use_skip_residual": bool(use_skip_residual),
         "use_se": bool(use_se),
         "use_ese": bool(use_ese),
+        "spp_separate_1x1": bool(spp_separate_1x1),
         "multi_label": bool(multi_label),
         "resize_mode": resize_mode,
         "input_channels": int(input_channels),
@@ -399,6 +407,7 @@ def main():
         use_se=inferred["use_se"],
         multi_label=inferred["multi_label"],
         pyramid_levels=pyramid_levels,
+        spp_separate_1x1=inferred["spp_separate_1x1"],
     ).to(device)
 
     model.load_state_dict(weight_state)

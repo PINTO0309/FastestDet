@@ -283,6 +283,7 @@ def _export_detector_onnx(args, onnx_path: str, input_shape: Optional[List[int]]
         use_se=args.use_se,
         multi_label=args.multi_label_robust_mode,
         pyramid_levels=pyramid_levels,
+        spp_separate_1x1=args.spp_separate_1x1,
     ).cpu()
     if args.weight:
         _load_state_dict(model, args.weight)
@@ -322,6 +323,7 @@ def main():
     parser.add_argument("--pyramid-levels", type=str, default="P1,P2,P3", help="comma-separated pyramid levels to fuse (P1,P2,P3)")
     parser.add_argument("--resize-mode", type=str, default=None, help="Resize mode to determine input channels.")
     parser.add_argument("--use-skip-residual", action="store_true", default=False, help="enable skip residual in backbone")
+    parser.add_argument("--spp-separate-1x1", action="store_true", default=False, help="use separate 1x1 conv per SPP branch")
     parser.add_argument("--multi-label-robust-mode", action="store_true", default=False, help="enable multi-label robust head")
     se_group = parser.add_mutually_exclusive_group()
     se_group.add_argument("--use-se", action="store_true", default=False, help="enable SE on shared features")

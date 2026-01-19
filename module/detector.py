@@ -43,6 +43,7 @@ class Detector(nn.Module):
         multi_label=False,
         pyramid_levels=None,
         p1_stride=8,
+        spp_separate_1x1=False,
     ):
         super(Detector, self).__init__()
 
@@ -67,7 +68,11 @@ class Detector(nn.Module):
             "P3": self.stage_out_channels[-1],
         }
         spp_in_channels = sum(level_channels[level] for level in self.pyramid_levels)
-        self.SPP = SPP(spp_in_channels, self.stage_out_channels[-2])
+        self.SPP = SPP(
+            spp_in_channels,
+            self.stage_out_channels[-2],
+            separate_1x1=spp_separate_1x1,
+        )
         self.ese = ESE(self.stage_out_channels[-2]) if use_ese else None
         self.se = SE(self.stage_out_channels[-2]) if use_se else None
 
