@@ -13,15 +13,15 @@ Various improvements have been made to make FastestDet even lighter and faster.
 5. Distillation
 6. Resume
 7. Toggle pyramid-levels: `P1 only`, `P2 only`, `P3 only`, `P1 + P2`, `P1 + P3`, `P2 + P3`, `P1 + P2 + P3`. For very low resolution models, including P2 and P3 in the architecture significantly reduces accuracy.
-8. Added stride adjustment function using `--stride-half` and `--stride-quarter` flags
+8. Added stride adjustment function using `--stride-half` and `--stride-quarter` flags. This changes the stride to 1/2 or 1/4, which significantly improves accuracy at the expense of increased computational cost.
 9. Backbone ShuffleNetv2 improvements: `Shuffle-free shufflenet`
-10. SE (Squeeze-and-Excitation) block/eSE (efficient Squeeze-and-Excitation) block
-11. Skip-Residual block
+10. SE (Squeeze-and-Excitation) block/eSE (efficient Squeeze-and-Excitation) block.
+11. Skip-Residual block.
 12. Added `--use-spp-separate-1x1` to use separate 1x1 conversion for each SPP branch, which is important to minimize quantization error.
-13. Free expansion of the number of channels by `--stage-out-channels`
-14. Freely expansion of the number of stages by `--stage-repeats`
+13. Free expansion of the number of channels by `--stage-out-channels`.
+14. Freely expansion of the number of stages by `--stage-repeats`.
 15. Added `--multi-label-robust-mode`, which switches the class head to multi-label mode (sigmoid + BCEWithLogits, multi-hot target in the same cell) when specified.
-16. Params and FLOPs Profiler: `profile_onnx.py`
+16. Params and FLOPs Profiler: `profile_onnx.py`.
     ```bash
     uv run python profile_onnx.py model.onnx
 
