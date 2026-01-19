@@ -47,7 +47,13 @@ if __name__ == '__main__':
     parser.add_argument('--stage-repeats', type=float, default=1.0, help='stage_repeats multiplier (0.5 step)')
     parser.add_argument('--pyramid-levels', type=str, default="P1,P2,P3", help='comma-separated pyramid levels to fuse (P1,P2,P3)')
     parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust inference')
-    parser.add_argument('--spp-separate-1x1', action='store_true', default=False, help='use separate 1x1 conv per SPP branch')
+    parser.add_argument(
+        '--use-spp-separate-1x1',
+        dest='spp_separate_1x1',
+        action='store_true',
+        default=False,
+        help='use separate 1x1 conv per SPP branch',
+    )
     se_group = parser.add_mutually_exclusive_group()
     se_group.add_argument('--use-se', action='store_true', default=False, help='enable SE on shared features')
     se_group.add_argument('--use-ese', action='store_true', default=False, help='enable eSE on shared features')

@@ -154,7 +154,13 @@ class FastestDet:
         parser.add_argument('--use-amp', action='store_true', default=False, help='enable mixed precision training')
         parser.add_argument('--multi-label-robust-mode', action='store_true', default=False, help='enable multi-label robust training')
         parser.add_argument('--use-skip-residual', action='store_true', default=False, help='enable skip residual in backbone')
-        parser.add_argument('--spp-separate-1x1', action='store_true', default=False, help='use separate 1x1 conv per SPP branch')
+        parser.add_argument(
+            '--use-spp-separate-1x1',
+            dest='spp_separate_1x1',
+            action='store_true',
+            default=False,
+            help='use separate 1x1 conv per SPP branch',
+        )
         stride_group = parser.add_mutually_exclusive_group()
         stride_group.add_argument('--stride-half', action='store_true', default=False, help='use P1=4,P2=8,P3=16')
         stride_group.add_argument('--stride-quarter', action='store_true', default=False, help='use P1=2,P2=4,P3=8')
