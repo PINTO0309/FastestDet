@@ -1,20 +1,9 @@
 import argparse
-import math
-import os
-import tempfile
 from collections import defaultdict
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import onnx
 import numpy as np
-import torch
-
-from module.detector import Detector, normalize_pyramid_levels
-from utils.resize import resize_output_channels
-from utils.tool import LoadYaml
-
-BASE_STAGE_REPEATS = [4, 8, 4]
-BASE_STAGE_OUT_CHANNELS = [-1, 24, 48, 96, 192]
 
 
 def _dim_to_int(dim) -> Optional[int]:
@@ -228,127 +217,19 @@ def parse_shape_arg(arg: Optional[str]) -> Optional[List[int]]:
     return [int(p) for p in parts]
 
 
-def _validate_eighth_step(value, name):
-    if value is None:
-        return
-    if abs(value * 8 - round(value * 8)) > 1e-6:
-        raise ValueError(f"{name} must be in 0.125 increments.")
-
-
-def _scale_stage_list(values, mult, keep_first=False):
-    if mult is None:
-        return list(values)
-    scaled = []
-    for i, v in enumerate(values):
-        if keep_first and i == 0 and v < 0:
-            scaled.append(v)
-            continue
-        scaled.append(max(1, int(round(v * mult))))
-    return scaled
-
-
-def _load_state_dict(model, weight_path: str) -> None:
-    weight_data = torch.load(weight_path, map_location="cpu")
-    weight_state = weight_data
-    if isinstance(weight_data, dict):
-        if "model" in weight_data:
-            weight_state = weight_data["model"]
-        elif "state_dict" in weight_data:
-            weight_state = weight_data["state_dict"]
-    model.load_state_dict(weight_state)
-
-
-def _export_detector_onnx(args, onnx_path: str, input_shape: Optional[List[int]]) -> List[int]:
-    if not args.yaml:
-        raise ValueError("Please provide --yaml when exporting from the current architecture.")
-    if args.weight is not None and not os.path.exists(args.weight):
-        raise FileNotFoundError(f"Weight file not found: {args.weight}")
-
-    cfg = LoadYaml(args.yaml)
-    _validate_eighth_step(args.stage_out_channels, "stage_out_channels")
-    _validate_eighth_step(args.stage_repeats, "stage_repeats")
-    stage_out_channels = _scale_stage_list(BASE_STAGE_OUT_CHANNELS, args.stage_out_channels, keep_first=True)
-    stage_repeats = _scale_stage_list(BASE_STAGE_REPEATS, args.stage_repeats)
-    pyramid_levels = normalize_pyramid_levels(args.pyramid_levels)
-    input_channels = resize_output_channels(args.resize_mode)
-
-    model = Detector(
-        cfg.category_num,
-        args.weight is not None,
-        input_channels=input_channels,
-        stage_repeats=stage_repeats,
-        stage_out_channels=stage_out_channels,
-        use_skip_residual=args.use_skip_residual,
-        use_ese=args.use_ese,
-        use_se=args.use_se,
-        multi_label=args.multi_label_robust_mode,
-        pyramid_levels=pyramid_levels,
-        spp_separate_1x1=args.spp_separate_1x1,
-    ).cpu()
-    if args.weight:
-        _load_state_dict(model, args.weight)
-    model.eval()
-
-    if input_shape is None:
-        input_shape = [1, input_channels, cfg.input_height, cfg.input_width]
-    if len(input_shape) != 4:
-        raise ValueError("--input-shape must be N,C,H,W")
-
-    dummy = torch.zeros(*input_shape, dtype=torch.float32)
-    torch.onnx.export(
-        model,
-        dummy,
-        onnx_path,
-        export_params=True,
-        opset_version=17,
-        input_names=["input"],
-        output_names=["output"],
-    )
-    return input_shape
-
-
 def main():
     parser = argparse.ArgumentParser(description="Compute FLOPs and parameter count for an ONNX model.")
-    parser.add_argument("onnx_path", nargs="?", default=None, help="Path to ONNX file.")
-    parser.add_argument("--yaml", type=str, default=None, help="YAML config for FastestDet.")
-    parser.add_argument("--weight", type=str, default=None, help="Weight file for FastestDet.")
+    parser.add_argument("onnx_path", help="Path to ONNX file.")
     parser.add_argument(
         "--input-shape",
         default=None,
         help="Override first input shape, e.g., 1,3,64,64 or 1x3x64x64 (NCHW).",
     )
-    parser.add_argument("--onnx-out", default=None, help="Export path when building from YAML/weights.")
-    parser.add_argument("--stage-out-channels", type=float, default=1.0, help="stage_out_channels multiplier (0.125 step)")
-    parser.add_argument("--stage-repeats", type=float, default=1.0, help="stage_repeats multiplier (0.125 step)")
-    parser.add_argument("--pyramid-levels", type=str, default="P1,P2,P3", help="comma-separated pyramid levels to fuse (P1,P2,P3)")
-    parser.add_argument("--resize-mode", type=str, default=None, help="Resize mode to determine input channels.")
-    parser.add_argument("--use-skip-residual", action="store_true", default=False, help="enable skip residual in backbone")
-    parser.add_argument(
-        "--use-spp-separate-1x1",
-        dest="spp_separate_1x1",
-        action="store_true",
-        default=False,
-        help="use separate 1x1 conv per SPP branch",
-    )
-    parser.add_argument("--multi-label-robust-mode", action="store_true", default=False, help="enable multi-label robust head")
-    se_group = parser.add_mutually_exclusive_group()
-    se_group.add_argument("--use-se", action="store_true", default=False, help="enable SE on shared features")
-    se_group.add_argument("--use-ese", action="store_true", default=False, help="enable eSE on shared features")
     parser.add_argument("--per-op", action="store_true", help="Print per-op FLOPs breakdown.")
     args = parser.parse_args()
 
     onnx_path = args.onnx_path
-    temp_path = None
     user_shape = parse_shape_arg(args.input_shape)
-
-    if onnx_path is None:
-        if args.onnx_out:
-            onnx_path = args.onnx_out
-        else:
-            fd, temp_path = tempfile.mkstemp(suffix=".onnx")
-            os.close(fd)
-            onnx_path = temp_path
-        user_shape = _export_detector_onnx(args, onnx_path, user_shape)
 
     model = onnx.load(onnx_path)
     if user_shape:
@@ -365,8 +246,6 @@ def main():
         print("\nPer-op breakdown:")
         for k, v in sorted(per_op.items(), key=lambda kv: kv[1], reverse=True):
             print(f"  {k:<16} {v:,} ({format_big(v, 'FLOPs')})")
-    if temp_path:
-        os.remove(temp_path)
 
 
 if __name__ == "__main__":
